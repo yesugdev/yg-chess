@@ -1,4 +1,8 @@
-<title>Гараа Дасгалжуулагч</title>
+<!doctype html>
+<html lang="mn">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Шатрын Дасгалжуулагч</title>
 <meta name="claude:viewport-fit-sides" content="cover">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;600&family=IBM+Plex+Sans:wght@400;500;600&family=Noto+Sans+Symbols+2&family=Unbounded:wght@500;700&display=swap">
@@ -57,14 +61,19 @@ button:focus-visible, summary:focus-visible { outline: 2px solid var(--accent); 
 
 .app { max-width: 1440px; margin: 0 auto; display: grid; gap: 20px;
   grid-template-columns: 290px minmax(0, 1fr) 340px; grid-template-areas: "side board panel"; align-items: start; }
-.side { grid-area: side; min-width: 0; }
+.side { grid-area: side; min-width: 0; display: grid; gap: 12px; }
 .stage { grid-area: board; min-width: 0; display: grid; justify-items: center; gap: 10px; }
 .panel { grid-area: panel; min-width: 0; }
 @media (max-width: 1120px) { .app { grid-template-columns: minmax(0, 1fr) 330px; grid-template-areas: "board panel" "side side"; } }
 @media (max-width: 760px) { .app { grid-template-columns: minmax(0, 1fr); grid-template-areas: "board" "panel" "side"; } }
 
 /* Board */
-.board-wrap { position: relative; width: min(100%, 74vh, 680px); aspect-ratio: 1; max-width: 100%; }
+.board-row { width: min(100%, 74vh, 680px); display: flex; gap: 6px; }
+.board-wrap { position: relative; flex: 1; min-width: 0; aspect-ratio: 1; }
+.evalbar { position: relative; flex: none; width: 16px; border-radius: 4px; overflow: hidden; background: #2b302d; box-shadow: 0 0 0 1px var(--line); }
+.evalbar[hidden] { display: none; }
+.evalbar i { position: absolute; left: 0; right: 0; bottom: 0; background: #f4f2ea; transition: height .25s ease; }
+.evalbar.flip i { bottom: auto; top: 0; }
 .board { position: absolute; inset: 0; display: grid; grid-template-columns: repeat(8, 1fr); grid-template-rows: repeat(8, 1fr);
   border-radius: 6px; overflow: hidden; container-type: inline-size; touch-action: none; user-select: none; -webkit-user-select: none;
   box-shadow: 0 0 0 1px var(--line), 0 10px 30px -14px rgba(0,0,0,.35); }
@@ -157,24 +166,77 @@ button:focus-visible, summary:focus-visible { outline: 2px solid var(--accent); 
 .keys span { display: inline-flex; align-items: center; gap: 6px; }
 .reset { padding: 10px 14px 6px; border-top: 1px solid var(--line); display: flex; flex-wrap: wrap; gap: 8px; align-items: center; font-size: 13px; }
 .linkbtn { border: 0; background: none; color: var(--muted); text-decoration: underline; padding: 0; font-size: 13px; }
-@media (prefers-reduced-motion: reduce) { .sq.hint::before { animation: none; } }
+@media (prefers-reduced-motion: reduce) { .sq.hint::before { animation: none; } .evalbar i { transition: none; } }
+
+/* Tabs and daily plan */
+.tabs { max-width: 1440px; margin: 0 auto 16px; display: flex; flex-wrap: wrap; gap: 4px; background: var(--surface); border: 1px solid var(--line); border-radius: 10px; padding: 4px; }
+.tabs button { flex: 1 1 auto; border: 0; background: transparent; padding: 8px 14px; border-radius: 7px; font-weight: 500; color: var(--muted); }
+.tabs button:hover { color: var(--ink); }
+.tabs button.on { background: var(--accent); color: var(--surface); }
+.pad { padding: 8px 14px 12px; display: grid; gap: 12px; }
+.side .card.plan { padding: 12px 8px; display: grid; gap: 4px; }
+.plan .eyebrow { padding: 0 6px; }
+.task { width: 100%; display: flex; justify-content: space-between; gap: 10px; border: 0; background: transparent; text-align: left; padding: 5px 6px; border-radius: 6px; font-size: 13.5px; }
+.task:hover { background: var(--bg); }
+.task span:last-child { color: var(--muted); font-size: 12.5px; font-variant-numeric: tabular-nums; white-space: nowrap; }
+.task.done span:first-child { color: var(--muted); text-decoration: line-through; }
+.task.done span:last-child { color: var(--ok); }
+
+/* Play setup */
+.field { display: grid; gap: 6px; }
+.lvls { display: grid; grid-template-columns: repeat(4, 1fr); gap: 4px; }
+.lvls button { border: 1px solid var(--line); background: var(--surface); border-radius: 6px; padding: 6px 0; font-weight: 600; font-variant-numeric: tabular-nums; }
+.lvls button.on { background: var(--accent); border-color: var(--accent); color: var(--surface); }
+.seg.three { grid-template-columns: 1fr 1fr 1fr; }
+.hintline { font-size: 12.5px; color: var(--muted); margin: 0; }
+select, textarea { font: inherit; color: inherit; background: var(--bg); border: 1px solid var(--line); border-radius: 8px; padding: 7px 9px; width: 100%; }
+textarea { font-family: var(--font-mono); font-size: 12.5px; min-height: 110px; resize: vertical; }
+select:focus-visible, textarea:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
+.check { display: flex; gap: 8px; align-items: flex-start; font-size: 13.5px; }
+.check input { margin-top: 4px; accent-color: var(--accent); }
+
+/* Review */
+.graph { display: block; width: 100%; height: 84px; border-radius: 8px; background: #2b302d; cursor: pointer; }
+.graph .area { fill: #f4f2ea; }
+.graph .mid { stroke: #8a958e; stroke-width: 1; stroke-dasharray: 3 3; vector-effect: non-scaling-stroke; }
+.graph .cur { stroke: #e0a453; stroke-width: 2; vector-effect: non-scaling-stroke; }
+.graph .hit { fill: transparent; }
+.graph .hit:hover { fill: rgba(224,164,83,.3); }
+.stats { display: grid; grid-template-columns: 1fr auto auto auto auto; gap: 3px 12px; font-size: 13px; font-variant-numeric: tabular-nums; align-items: baseline; }
+.stats b { font-weight: 600; }
+.stats .h { color: var(--muted); font-size: 12px; }
+.mv.inacc { color: var(--warn); } .mv.mist { color: #c9711a; } .mv.blun { color: var(--bad); font-weight: 600; }
+.mv.cur.inacc, .mv.cur.mist, .mv.cur.blun { color: var(--surface); }
+.pv { font-family: var(--font-mono); font-size: 12.5px; color: var(--muted); margin: 0; }
+.gl { width: 100%; display: grid; grid-template-columns: 1fr auto; gap: 0 8px; border: 0; background: transparent; text-align: left; padding: 6px 8px; border-radius: 6px; font-size: 13.5px; }
+.gl:hover { background: var(--bg); }
+.gl small { color: var(--muted); font-size: 12px; font-variant-numeric: tabular-nums; }
+.gl.cur { background: var(--accent-soft); }
+.gamelist { display: grid; gap: 1px; max-height: 320px; overflow-y: auto; }
+.angles { display: flex; flex-wrap: wrap; gap: 5px; }
+.angles .btn.on { background: var(--accent); border-color: var(--accent); color: var(--surface); }
 </style>
 
 <header class="top">
   <div class="brand">
-    <h1>Гараа Дасгалжуулагч</h1>
-    <p>Гараагаа сумаар судалж, дараа нь өөрөө нүүж давт. Алдсан хувилбар дахин дахин гарна, цээжилсэн нь хойш зайтай давтагдана.</p>
+    <h1>Шатрын Дасгалжуулагч</h1>
+    <p>Гараагаа цээжил, Stockfish-тэй тогло, тоглолтоо шинжил, алдаа болон тактикаа өдөр бүр давт.</p>
   </div>
   <div class="overall" id="overall"></div>
 </header>
 
+<nav class="tabs" id="tabs" aria-label="Хэсгүүд"></nav>
+
 <main class="app">
-  <aside class="side"><div class="card" id="library"></div></aside>
+  <aside class="side"><div class="card plan" id="plan"></div><div class="card" id="library"></div></aside>
   <section class="stage">
-    <div class="board-wrap" id="boardWrap">
-      <div class="board" id="board" aria-label="Шатрын самбар"></div>
-      <svg class="arrows" id="arrows" viewBox="0 0 8 8" aria-hidden="true"></svg>
-      <div class="ghost" id="ghost" hidden></div>
+    <div class="board-row">
+      <div class="evalbar" id="evalbar" hidden><i></i></div>
+      <div class="board-wrap" id="boardWrap">
+        <div class="board" id="board" aria-label="Шатрын самбар"></div>
+        <svg class="arrows" id="arrows" viewBox="0 0 8 8" aria-hidden="true"></svg>
+        <div class="ghost" id="ghost" hidden></div>
+      </div>
     </div>
     <div class="stage-bar">
       <span class="turn" id="turn"></span>
@@ -334,12 +396,28 @@ for (const o of OPENINGS) {
 const byId = id => LINES.find(l => l.id === id);
 
 // Progress (per-browser)
-let P = { lines: {}, daily: { date: '', n: 0 } };
+const blankProgress = () => ({ lines: {}, daily: { date: '', n: 0 }, streak: { last: '', n: 0 }, games: [], cards: {}, levels: {},
+  setup: { level: 3, color: 'w', opening: '', coach: true }, pz: { rating: 1200, ok: 0, fail: 0, run: 0, angle: 'mix', themes: {}, seen: [] } });
+let P = blankProgress();
 try { const raw = localStorage.getItem(STORE_KEY); if (raw) P = Object.assign(P, JSON.parse(raw)); } catch (e) {}
 function save() { try { localStorage.setItem(STORE_KEY, JSON.stringify(P)); } catch (e) {} }
 const prog = id => P.lines[id] || (P.lines[id] = { box: 0, seen: false, reps: 0, fails: 0, due: 0, last: 0 });
 const peek = id => P.lines[id];
-const todayKey = () => new Date().toISOString().slice(0, 10);
+const todayKey = (d = new Date()) => d.toLocaleDateString('sv');
+function today() {
+  const t = todayKey();
+  if (P.daily.date !== t) P.daily = { date: t, n: 0 };
+  return P.daily;
+}
+function logWork(kind) {
+  const d = today(), t = d.date;
+  d[kind] = (d[kind] || 0) + 1;
+  if (P.streak.last !== t) {
+    const y = todayKey(new Date(Date.now() - DAY));
+    P.streak = { last: t, n: P.streak.last === y ? P.streak.n + 1 : 1 };
+  }
+  save();
+}
 function status(id) {
   const p = peek(id);
   if (!p || !p.seen) return 'new';
@@ -358,8 +436,9 @@ function dueText(id) {
 }
 
 const S = {
-  mode: 'learn', line: OPENINGS[0].lineObjs[0], ply: 0, game: new Chess(), orient: 'w',
-  selected: null, lastMove: null, arrow: null, hintSq: null, flash: null, drag: null,
+  tab: 'open', mode: 'learn', line: OPENINGS[0].lineObjs[0], ply: 0, game: new Chess(), orient: 'w',
+  selected: null, lastMove: null, arrow: null, arrow2: null, hintSq: null, flash: null, drag: null,
+  G: null, R: null, C: null, PZ: null, pzQ: [], pzTok: 0, pgnText: '', pgnColor: 'w',
   pool: [], poolLabel: '', mistakes: 0, posMistakes: 0, busy: false, finished: false,
   requeue: null, lastLineId: null, msg: null, openOps: new Set(['italian']), confirmReset: false, oppTimer: null,
 };
@@ -367,6 +446,7 @@ const S = {
 /* ---------- Learn mode ---------- */
 function startLearn(line, ply = 0) {
   clearTimeout(S.oppTimer);
+  S.tab = 'open'; S.arrow2 = null; S.busy = false; S.finished = false;
   S.mode = 'learn'; S.line = line; S.orient = line.o.side; S.openOps.add(line.o.id);
   S.msg = { type: 'info', text: 'Сум дараагийн нүүдлийг харуулна. Самбар дээр өөрөө нүүж эсвэл ▶ товчоор урагшил.' };
   setLearnPos(ply);
@@ -395,6 +475,7 @@ function learnMove(mv) {
 
 /* ---------- Drill mode ---------- */
 function startDrill(pool, label) {
+  S.tab = 'open'; S.arrow2 = null;
   S.mode = 'drill'; S.pool = pool; S.poolLabel = label; S.requeue = null;
   loadDrillLine(pickLine(pool));
 }
@@ -483,8 +564,7 @@ function revealAnswer(count = true) {
 function finish() {
   S.finished = true; S.arrow = null; S.hintSq = null;
   const L = S.line, p = prog(L.id);
-  const t = todayKey(); if (P.daily.date !== t) P.daily = { date: t, n: 0 };
-  P.daily.n++; p.reps++; p.last = Date.now();
+  logWork('n'); p.reps++; p.last = Date.now();
   let text;
   if (S.mistakes === 0) {
     p.seen = true; p.box = Math.min(INTERVALS.length - 1, p.box + 1); p.due = Date.now() + INTERVALS[p.box];
@@ -498,9 +578,876 @@ function finish() {
   renderLibrary(); renderOverall();
 }
 
+/* ---------- Engine: Stockfish in a Web Worker ---------- */
+const SF_BASE = 'https://cdnjs.cloudflare.com/ajax/libs/stockfish.js/10.0.2/';
+const Engine = {
+  worker: null, booting: null, tail: Promise.resolve(), onLine: null,
+  boot() {
+    return this.booting || (this.booting = (async () => {
+      // Worker scripts must be same-origin, so the CDN build runs from a blob URL and gets an absolute wasm path
+      const src = await (await fetch(SF_BASE + 'stockfish.wasm.js')).text();
+      const patched = src.replace('locateFile:function(e){return e}', `locateFile:function(e){return ${JSON.stringify(SF_BASE)}+e}`);
+      this.worker = new Worker(URL.createObjectURL(new Blob([patched], { type: 'text/javascript' })));
+      this.worker.onmessage = e => this.onLine && this.onLine(String(e.data));
+      await this.exchange('uci', 'uciok');
+      this.worker.postMessage('setoption name Hash value 32');
+      // Default contempt inflates the side to move's score, which would misgrade every move
+      this.worker.postMessage('setoption name Contempt value 0');
+      await this.exchange('isready', 'readyok');
+    })().catch(e => { this.booting = null; throw e; }));
+  },
+  exchange(cmd, reply) {
+    return new Promise((res, rej) => {
+      const timer = setTimeout(() => rej(new Error('engine timeout')), 30000);
+      this.onLine = l => { if (l === reply) { clearTimeout(timer); this.onLine = null; res(); } };
+      this.worker.postMessage(cmd);
+    });
+  },
+  // Searches run one at a time. Scores are from the side to move: { best, lines: [{ uci, pv, cp, mate }] }
+  search(fen, { depth = 12, movetime = 0, multipv = 1 } = {}) {
+    const run = async () => {
+      await this.boot();
+      const lines = [];
+      const best = await new Promise(res => {
+        this.onLine = l => {
+          if (l.startsWith('bestmove')) { this.onLine = null; res(l.split(' ')[1]); return; }
+          if (!l.startsWith('info') || !l.includes(' pv ')) return;
+          const s = l.match(/ score (cp|mate) (-?\d+)( lowerbound| upperbound)?/), m = l.match(/ multipv (\d+)/);
+          if (!s || s[3]) return;
+          const pv = l.split(' pv ')[1].trim().split(' ');
+          lines[(m ? +m[1] : 1) - 1] = { uci: pv[0], pv, cp: s[1] === 'cp' ? +s[2] : null, mate: s[1] === 'mate' ? +s[2] : null };
+        };
+        this.worker.postMessage('setoption name MultiPV value ' + multipv);
+        this.worker.postMessage('position fen ' + fen);
+        this.worker.postMessage(`go depth ${depth}${movetime ? ' movetime ' + movetime : ''}`);
+      });
+      const found = lines.filter(Boolean);
+      return { best, lines: found.length ? found : [{ uci: best, pv: [best], cp: 0, mate: null }] };
+    };
+    const p = this.tail.then(run);
+    this.tail = p.catch(() => {});
+    return p;
+  },
+};
+async function safeSearch(fen, opts) {
+  try { return await Engine.search(fen, opts); }
+  catch (e) {
+    S.msg = { type: 'bad', text: 'Stockfish ачаалж чадсангүй. Интернэт холболтоо шалгаад хуудсаа дахин ачаална уу.' };
+    renderPanel();
+    return null;
+  }
+}
+
+/* ---------- Evaluation ---------- */
+const MATE_CP = 10000;
+const PIECE_NAME = { p: 'хүү', n: 'морь', b: 'тэмээ', r: 'тэрэг', q: 'бэрс', k: 'ноён' };
+const PIECE_VALUE = { p: 1, n: 3, b: 3, r: 5, q: 9, k: 0 };
+const wait = ms => new Promise(r => setTimeout(r, ms));
+const scoreOf = e => e.mate != null ? Math.sign(e.mate) * (MATE_CP - Math.abs(e.mate) * 10) : e.cp;
+// Lichess win-chance curve: centipawns to 0–100
+const winOf = e => e.mate != null ? (e.mate > 0 ? 100 : 0) : 50 + 50 * (2 / (1 + Math.exp(-0.00368208 * e.cp)) - 1);
+const flipEval = e => ({ cp: e.cp == null ? null : -e.cp, mate: e.mate == null ? null : -e.mate });
+function evalText(e) {
+  if (!e) return '…';
+  if (e.mate != null) return (e.mate > 0 ? '+' : '−') + 'M' + Math.abs(e.mate);
+  if (Math.abs(e.cp) >= MATE_CP) return 'Мат';
+  return (e.cp >= 0 ? '+' : '−') + Math.abs(e.cp / 100).toFixed(1);
+}
+// Shallow searches overrate early positions, so early losses count for less; a real blunder still clears the bar
+const gradedLoss = (loss, ply) => ply < 10 ? loss * .6 : loss;
+function classify(loss) { return loss >= 15 ? 'blun' : loss >= 10 ? 'mist' : loss >= 5 ? 'inacc' : ''; }
+const GLYPH_CLS = { inacc: '?!', mist: '?', blun: '??' };
+const CLS_TXT = { inacc: 'Бага зэргийн алдаа', mist: 'Алдаа', blun: 'Ноцтой алдаа' };
+const uciOf = m => m.from + m.to + (m.promotion || '');
+const moveFromUci = (g, uci) => uci && g.moves({ verbose: true }).find(m => uciOf(m) === uci);
+function wantedPromotion(from, to) {
+  // Puzzles and mistake cards can need an underpromotion; everywhere else a pawn queens
+  const want = S.mode === 'puzzle' && S.PZ ? S.PZ.sol[S.PZ.i] : S.mode === 'retry' && S.C && S.C.card ? S.C.card.best : '';
+  return want && want.startsWith(from + to) && want[4] ? want[4] : 'q';
+}
+// Plain-language reason built from the engine lines before and after the move
+function explain({ fen, played, bestUci, replyUci, oppMate, bestMate }) {
+  const g = new Chess(fen), best = moveFromUci(g, bestUci), parts = [];
+  const bestSan = best ? esc(best.san) : '';
+  if (bestMate > 0 && best) parts.push(`<b>${bestSan}</b> нүүдлээс ${bestMate} нүүдэлд мат тавих боломж байсан.`);
+  const mv = played && g.move({ from: played.from, to: played.to, promotion: played.promotion });
+  const reply = mv && moveFromUci(g, replyUci);
+  if (oppMate > 0) parts.push(`Одоо өрсөлдөгч ${oppMate} нүүдэлд мат тавина${reply ? ` (<b>${esc(reply.san)}</b>)` : ''}.`);
+  else if (reply && reply.captured && PIECE_VALUE[reply.captured] > (mv.captured ? PIECE_VALUE[mv.captured] : 0))
+    parts.push(`Хариуд нь <b>${esc(reply.san)}</b>, таны ${PIECE_NAME[reply.captured]} алдагдана.`);
+  if (!(bestMate > 0) && best && best.captured) parts.push(`<b>${bestSan}</b> нүүдлээр ${PIECE_NAME[best.captured]} авах боломжтой байсан.`);
+  else if (!(bestMate > 0) && best) parts.push(`Илүү сайн нь <b>${bestSan}</b>.`);
+  return parts.join(' ');
+}
+function sanLine(fen, pv, n = 6) {
+  const g = new Chess(fen), out = [];
+  for (const u of (pv || []).slice(0, n)) { const m = moveFromUci(g, u); if (!m) break; g.move(m.san); out.push(m.san); }
+  return out.join(' ');
+}
+// Where a game leaves the repertoire, and whose move left it
+function bookStatus(sans, color) {
+  let pool = LINES.filter(l => l.o.side === color);
+  for (let i = 0; i < sans.length; i++) {
+    const live = pool.filter(l => l.moves.length > i);
+    if (!live.length) return { ply: i, mine: false, pool };
+    const next = live.filter(l => strip(l.moves[i]) === strip(sans[i]));
+    if (!next.length) return { ply: i, mine: (i % 2 === 0) === (color === 'w'), pool: live };
+    pool = next;
+  }
+  return { ply: sans.length, mine: false, pool };
+}
+function plyListHTML(sans, { cur = -1, cls = [], click = false, pending = false } = {}) {
+  let h = '';
+  const total = pending ? sans.length + 1 : sans.length;
+  for (let i = 0; i < total; i += 2) {
+    h += `<span class="num">${i / 2 + 1}.</span>`;
+    for (const j of [i, i + 1]) {
+      if (j >= sans.length) { h += j === sans.length && pending ? '<span class="mv pending">…</span>' : '<span></span>'; continue; }
+      const c = ['mv'];
+      if (cls[j]) c.push(cls[j]);
+      if (j === cur) c.push('cur');
+      const txt = esc(sans[j]) + (GLYPH_CLS[cls[j]] || '');
+      h += click ? `<button class="${c.join(' ')}" data-rply="${j + 1}" type="button">${txt}</button>` : `<span class="${c.join(' ')}">${txt}</span>`;
+    }
+  }
+  return h;
+}
+
+/* ---------- Play against the engine ---------- */
+const LEVELS = [
+  { name: 'Шинэ эхлэгч', depth: 1, pv: 12, temp: 260, err: .25 },
+  { name: 'Эхлэгч', depth: 2, pv: 10, temp: 170, err: .15 },
+  { name: 'Сонирхогч', depth: 3, pv: 8, temp: 110, err: .08 },
+  { name: 'Дунд', depth: 5, pv: 6, temp: 65, err: .03 },
+  { name: 'Туршлагатай', depth: 7, pv: 5, temp: 35, err: 0 },
+  { name: 'Хүчтэй', depth: 10, pv: 4, temp: 16, err: 0 },
+  { name: 'Мастер', depth: 13, pv: 2, temp: 6, err: 0 },
+  { name: 'Бүрэн хүч', depth: 18, pv: 1, temp: 0, err: 0, time: 1500 },
+];
+const COACH_DEPTH = 11, COACH_LOSS = 10, REPLY_DELAY = 400;
+function chooseMove(res, lv) {
+  const ls = res.lines;
+  if (!lv.temp || ls.length < 2) return res.best;
+  if (Math.random() < lv.err) return ls[Math.floor(Math.random() * ls.length)].uci;
+  const top = scoreOf(ls[0]), w = ls.map(l => Math.exp((scoreOf(l) - top) / lv.temp));
+  let r = Math.random() * w.reduce((a, b) => a + b, 0);
+  for (let i = 0; i < ls.length; i++) { r -= w[i]; if (r <= 0) return ls[i].uci; }
+  return res.best;
+}
+function startGame() {
+  const st = P.setup, o = OPENINGS.find(x => x.id === st.opening);
+  const color = o ? o.side : st.color === 'r' ? (Math.random() < .5 ? 'w' : 'b') : st.color;
+  beginGame({ color, level: st.level, book: o ? o.lineObjs : null, label: o ? o.name : '' });
+}
+function beginGame({ color, level, moves = [], book = null, label = '' }) {
+  clearTimeout(S.oppTimer);
+  const game = new Chess();
+  moves.forEach(m => game.move(m));
+  const G = S.G = { id: Date.now(), game, color, level, book, label, base: moves.length, over: false, result: '', reason: '',
+    outcome: '', pre: null, hold: null, thinking: false, checking: false, hints: 0, rec: null };
+  Object.assign(S, { tab: 'play', mode: 'play', orient: color, selected: null, hintSq: null, arrow: null, arrow2: null, busy: false });
+  showGame(G);
+  renderLibrary();
+  nextTurn(G);
+}
+function showGame(G) {
+  S.game = G.game;
+  const h = G.game.history({ verbose: true }), m = h[h.length - 1];
+  S.lastMove = m ? { from: m.from, to: m.to } : null;
+}
+function paintGame(G) { if (S.mode === 'play' && S.G === G) { showGame(G); renderAll(); } }
+// Engine replies can land after the player moved to another tab
+function gameMsg(G, msg) { if (S.mode === 'play' && S.G === G) S.msg = msg; }
+function nextTurn(G) {
+  if (G.game.game_over()) return endGame(G);
+  if (G.game.turn() !== G.color) return engineMove(G);
+  G.pre = safeSearch(G.game.fen(), { depth: COACH_DEPTH, movetime: 800 });
+  const sans = G.game.history(), last = sans[sans.length - 1];
+  gameMsg(G, { type: 'info', text: (last ? `Өрсөлдөгч <b>${esc(last)}</b> нүүлээ. ` : '') + 'Таны ээлж.' + bookNote(G, sans) });
+  paintGame(G);
+}
+function bookNote(G, sans) {
+  const b = bookStatus(sans, G.color);
+  if (b.ply >= sans.length) return sans.length ? ' Та репертуарын дотор байна.' : '';
+  if (b.ply !== sans.length - 1) return '';
+  return b.mine ? ' Та репертуараас гарлаа.' : ' Өрсөлдөгч репертуараас гарлаа. Одоо өөрөө бодоорой.';
+}
+function bookReply(G) {
+  if (!G.book) return null;
+  const sans = G.game.history().map(strip);
+  const next = G.book.filter(l => l.moves.length > sans.length && sans.every((s, i) => s === strip(l.moves[i])));
+  if (!next.length) return null;
+  return findMove(G.game, next[Math.floor(Math.random() * next.length)].moves[sans.length]);
+}
+async function engineMove(G) {
+  G.thinking = true; G.checking = false; G.pre = null;
+  gameMsg(G, { type: 'info', text: 'AI бодож байна…' });
+  paintGame(G);
+  const t0 = Date.now(), lv = LEVELS[G.level - 1];
+  let mv = bookReply(G);
+  if (!mv) {
+    const res = await safeSearch(G.game.fen(), { depth: lv.depth, movetime: lv.time || 0, multipv: lv.pv });
+    if (!res) { G.thinking = false; return; }
+    if (S.G !== G || G.over) return;
+    mv = moveFromUci(G.game, chooseMove(res, lv));
+  }
+  await wait(Math.max(0, REPLY_DELAY - (Date.now() - t0)));
+  if (S.G !== G || G.over) return;
+  G.game.move({ from: mv.from, to: mv.to, promotion: mv.promotion });
+  G.thinking = false;
+  nextTurn(G);
+}
+async function playMove(mv) {
+  const G = S.G, pre = G.pre, fen = G.game.fen();
+  G.game.move({ from: mv.from, to: mv.to, promotion: mv.promotion });
+  G.pre = null; S.arrow = null;
+  if (G.game.game_over()) return endGame(G);
+  if (!P.setup.coach || !pre) return engineMove(G);
+  G.thinking = true; G.checking = true;
+  S.msg = { type: 'info', text: 'Дасгалжуулагч шалгаж байна…' };
+  paintGame(G);
+  const [before, after] = await Promise.all([pre, safeSearch(G.game.fen(), { depth: COACH_DEPTH, movetime: 800 })]);
+  if (S.G !== G || G.over) return;
+  G.thinking = false; G.checking = false;
+  if (before && after) {
+    const a = after.lines[0], b = before.lines[0], loss = gradedLoss(winOf(b) - (100 - winOf(a)), G.game.history().length - 1);
+    if (loss >= COACH_LOSS && before.best !== uciOf(mv)) {
+      G.hold = { san: mv.san, cls: classify(loss), best: before.best,
+        why: explain({ fen, played: mv, bestUci: before.best, replyUci: a.uci, oppMate: a.mate > 0 ? a.mate : 0, bestMate: b.mate > 0 ? b.mate : 0 }) };
+      gameMsg(G, { type: 'bad', text: `<b>${esc(mv.san)}</b>: ${CLS_TXT[G.hold.cls]}. Буцааж дахин бодох уу?` });
+      paintGame(G);
+      return;
+    }
+  }
+  engineMove(G);
+}
+function holdUndo(showAnswer) {
+  const G = S.G; if (!G || !G.hold) return;
+  const { best, why } = G.hold;
+  G.game.undo(); G.hold = null;
+  nextTurn(G);
+  if (showAnswer) {
+    const m = moveFromUci(G.game, best);
+    S.arrow = { from: m.from, to: m.to, kind: 'answer' }; G.hints++;
+    S.msg = { type: 'info', text: why };
+    paintGame(G);
+  }
+}
+function holdContinue() { const G = S.G; if (!G || !G.hold) return; G.hold = null; engineMove(G); }
+async function playHint() {
+  const G = S.G;
+  if (!G || S.mode !== 'play' || !interactive() || !G.pre) return;
+  const res = await G.pre;
+  if (!res || S.G !== G || G.game.turn() !== G.color) return;
+  const m = moveFromUci(G.game, res.best); if (!m) return;
+  G.hints++;
+  S.arrow = { from: m.from, to: m.to, kind: 'answer' };
+  S.msg = { type: 'info', text: `Stockfish-ийн санал: <b>${esc(m.san)}</b>. Яагаад энэ нүүдэл гэж бодож үзээрэй.` };
+  paintGame(G);
+}
+function takeback() {
+  const G = S.G;
+  if (!G || G.over || !interactive()) return;
+  if (G.game.history().length - G.base < 2) return;
+  G.game.undo(); G.game.undo(); S.arrow = null;
+  nextTurn(G);
+}
+function endGame(G, resignedBy) {
+  const g = G.game;
+  let result = '1/2-1/2', reason = 'Тэнцээ';
+  if (resignedBy) { result = resignedBy === 'w' ? '0-1' : '1-0'; reason = 'Бууж өгсөн'; }
+  else if (g.in_checkmate()) { result = g.turn() === 'w' ? '0-1' : '1-0'; reason = 'Мат'; }
+  else if (g.in_stalemate()) reason = 'Пат';
+  else if (g.in_threefold_repetition()) reason = 'Гурван удаагийн давталт';
+  else if (g.insufficient_material()) reason = 'Дүрс хүрэлцэхгүй';
+  const mine = G.color === 'w' ? '1-0' : '0-1';
+  G.over = true; G.thinking = false; G.pre = null; G.result = result; G.reason = reason;
+  G.outcome = result === '1/2-1/2' ? 'd' : result === mine ? 'w' : 'l';
+  const moves = g.history();
+  if (moves.length - G.base >= 2) {
+    G.rec = { id: G.id, date: Date.now(), moves, result, reason, color: G.color, level: G.level, label: G.label,
+      white: G.color === 'w' ? 'Та' : `AI ${G.level}`, black: G.color === 'b' ? 'Та' : `AI ${G.level}`, hints: G.hints, an: null };
+    P.games.unshift(G.rec); P.games.length = Math.min(P.games.length, 30);
+    const s = P.levels[G.level] || (P.levels[G.level] = { w: 0, d: 0, l: 0 });
+    s[G.outcome]++;
+    logWork('games');
+  }
+  const head = { w: 'Та яллаа!', d: 'Тэнцлээ.', l: 'AI яллаа.' }[G.outcome];
+  const up = G.outcome === 'w' && G.level < 8 ? ` Дараа нь ${G.level + 1}-р түвшинг үзээрэй.` : '';
+  gameMsg(G, { type: 'done', text: `<b>${head}</b> ${reason}, ${result}.${up}${G.rec ? ' Одоо тоглолтоо шинжилж алдаанаасаа суралцаарай.' : ''}` });
+  paintGame(G);
+  if (S.tab === 'play') renderLibrary();
+}
+function renderPlayPanel() {
+  const G = S.G, el = $('#panel');
+  const msg = S.msg ? `<div class="msg ${S.msg.type}" aria-live="polite">${S.msg.text}</div>` : '';
+  if (!G) {
+    el.innerHTML = `<div><div class="eyebrow">AI-тай тоглох</div><h2 class="ptitle">Түвшингээ сонгоод эхэл</h2></div>
+      <p class="note">Дасгалжуулагч асаалттай үед алдаа гаргамагц анхааруулж, нүүдлээ буцаах боломж өгнө. Тоглолт дуусахад Stockfish бүх нүүдлийг шинжилнэ.</p>
+      <div class="actions"><button class="btn primary" type="button" data-act="start-game">Тоглолт эхлэх</button></div>`;
+    return;
+  }
+  const lv = LEVELS[G.level - 1], sans = G.game.history();
+  let actions;
+  if (G.over) actions = `${G.rec ? '<button class="btn primary" type="button" data-act="review-last">Шинжлэх</button>' : ''}
+    <button class="btn" type="button" data-act="start-game">Шинэ тоглолт</button>`;
+  else if (G.hold) actions = `<button class="btn primary" type="button" data-act="hold-undo">Буцааж бодох</button>
+    <button class="btn" type="button" data-act="hold-show">Зөв нүүдэл харах</button>
+    <button class="btn" type="button" data-act="hold-keep">Үргэлжлүүлэх</button>`;
+  else actions = `<button class="btn" type="button" data-act="play-hint" ${interactive() ? '' : 'disabled'}>Санамж (H)</button>
+    <button class="btn" type="button" data-act="takeback" ${interactive() && sans.length - G.base >= 2 ? '' : 'disabled'}>Буцаах</button>
+    <button class="btn" type="button" data-act="resign" ${G.thinking ? 'disabled' : ''}>Бууж өгөх</button>`;
+  el.innerHTML = `<div><div class="eyebrow">AI ${G.level}: ${esc(lv.name)} · та ${G.color === 'w' ? 'цагаан' : 'хар'}</div>
+      <h2 class="ptitle">${G.label ? esc(G.label) : 'Чөлөөт тоглолт'}</h2></div>
+    <div class="moves">${plyListHTML(sans, { cur: sans.length - 1, pending: !G.over })}</div>
+    ${msg}
+    <div class="actions">${actions}</div>`;
+}
+function renderPlaySide() {
+  const st = P.setup, lv = LEVELS[st.level - 1], rec = P.levels[st.level];
+  $('#library').innerHTML = `<div class="pad">
+    <div class="field"><span class="eyebrow">Түвшин</span>
+      <div class="lvls">${LEVELS.map((_, i) => `<button type="button" class="${st.level === i + 1 ? 'on' : ''}" data-act="lvl" data-v="${i + 1}" aria-label="Түвшин ${i + 1}">${i + 1}</button>`).join('')}</div>
+      <p class="hintline">${esc(lv.name)}${rec ? ` · Ялалт ${rec.w}, тэнцээ ${rec.d}, ялагдал ${rec.l}` : ''}</p></div>
+    <div class="field"><span class="eyebrow">Гараа</span>
+      <select id="openSel" aria-label="Гараа"><option value="">Чөлөөт</option>${OPENINGS.map(o => `<option value="${o.id}" ${st.opening === o.id ? 'selected' : ''}>${esc(o.name)} (${o.side === 'w' ? 'цагаанаар' : 'хараар'})</option>`).join('')}</select>
+      <p class="hintline">${st.opening ? 'AI таны давтаж буй хувилбаруудаар хариулж, гараа дуусмагц өөрөө тоглоно.' : 'Гараа сонговол тэр гарааны хувилбаруудаар бэлтгэнэ.'}</p></div>
+    ${st.opening ? '' : `<div class="field"><span class="eyebrow">Өнгө</span>
+      <div class="seg three">${[['w', 'Цагаан'], ['r', 'Санамсаргүй'], ['b', 'Хар']].map(([v, t]) => `<button type="button" class="${st.color === v ? 'on' : ''}" data-act="col" data-v="${v}">${t}</button>`).join('')}</div></div>`}
+    <label class="check"><input type="checkbox" id="coachChk" ${st.coach ? 'checked' : ''}><span>Дасгалжуулагч: алдаа гаргамагц анхааруулах</span></label>
+    <button class="btn primary" type="button" data-act="start-game">Тоглолт эхлэх</button></div>`;
+}
+
+/* ---------- Game review ---------- */
+function openReview(rec) {
+  const g = new Chess(rec.start || undefined), fens = [g.fen()], vm = [];
+  for (const s of rec.moves) { const m = g.move(s); vm.push(m); fens.push(g.fen()); }
+  const R = S.R = { rec, fens, vm, sans: vm.map(m => m.san), i: 0, done: false, ev: [], best: [], pv: [], cls: [], loss: [], acc: null, n: 0 };
+  if (rec.an) {
+    Object.assign(R, { ev: rec.an.ev, best: rec.an.best, pv: rec.an.pv, done: true });
+    grade(R);
+  }
+  Object.assign(S, { tab: 'review', mode: 'review', orient: rec.color, msg: null });
+  reviewGo(0);
+  renderLibrary();
+  if (!R.done) analyze(R);
+}
+async function analyze(R) {
+  for (let i = 0; i < R.fens.length; i++) {
+    if (S.R !== R) return;
+    const g = new Chess(R.fens[i]);
+    if (g.game_over()) {
+      R.ev[i] = { cp: g.in_checkmate() ? (g.turn() === 'w' ? -MATE_CP : MATE_CP) : 0, mate: null };
+      R.best[i] = null; R.pv[i] = [];
+    } else {
+      const res = await safeSearch(R.fens[i], { depth: 13, movetime: 1500 });
+      if (!res) return;
+      const l = res.lines[0];
+      R.ev[i] = g.turn() === 'w' ? { cp: l.cp, mate: l.mate } : flipEval(l);
+      R.best[i] = res.best; R.pv[i] = l.pv.slice(0, 6);
+    }
+    R.n = i + 1;
+    if (S.mode === 'review' && S.R === R) { renderEvalBar(); renderPanel(); }
+  }
+  R.done = true;
+  grade(R);
+  R.rec.an = { ev: R.ev, best: R.best, pv: R.pv, acc: R.acc, phases: R.phases };
+  addCards(R);
+  logWork('reviews');
+  if (S.mode === 'review' && S.R === R) { reviewGo(R.i); }
+  if (S.tab === 'review') renderLibrary();
+}
+function grade(R) {
+  const sum = { w: [], b: [] }, tally = { w: { inacc: 0, mist: 0, blun: 0 }, b: { inacc: 0, mist: 0, blun: 0 } };
+  R.phases = { o: 0, m: 0, e: 0 };
+  R.sans.forEach((san, i) => {
+    const side = R.vm[i].color, before = winOf(R.ev[i]), after = winOf(R.ev[i + 1]);
+    const raw = side === 'w' ? before - after : after - before;
+    const loss = R.best[i] === uciOf(R.vm[i]) ? 0 : gradedLoss(Math.max(0, raw), i);
+    R.loss[i] = loss; R.cls[i] = classify(loss);
+    sum[side].push(Math.max(0, Math.min(100, 103.1668 * Math.exp(-0.04354 * loss) - 3.1669)));
+    if (R.cls[i]) tally[side][R.cls[i]]++;
+    if (side === R.rec.color && (R.cls[i] === 'mist' || R.cls[i] === 'blun')) R.phases[phaseOf(R.fens[i], i)]++;
+  });
+  const mean = a => a.length ? Math.round(a.reduce((x, y) => x + y, 0) / a.length) : 0;
+  R.acc = { w: mean(sum.w), b: mean(sum.b) };
+  R.tally = tally;
+}
+function phaseOf(fen, ply) {
+  if (ply < 20) return 'o';
+  const heavy = fen.split(' ')[0].replace(/[^qrbnQRBN]/g, '').length;
+  return heavy <= 6 ? 'e' : 'm';
+}
+function moveExplain(R, i) {
+  const before = R.fens[i], turn = R.vm[i].color, sign = e => turn === 'w' ? e : flipEval(e);
+  const b = sign(R.ev[i]), a = sign(R.ev[i + 1]);
+  return explain({ fen: before, played: R.vm[i], bestUci: R.best[i], replyUci: (R.pv[i + 1] || [])[0],
+    oppMate: a.mate < 0 ? -a.mate : 0, bestMate: b.mate > 0 ? b.mate : 0 });
+}
+function addCards(R) {
+  R.sans.forEach((san, i) => {
+    if (R.vm[i].color !== R.rec.color || !(R.cls[i] === 'mist' || R.cls[i] === 'blun') || !R.best[i]) return;
+    const fen = R.fens[i], old = P.cards[fen], side = R.vm[i].color === 'w' ? R.ev[i] : flipEval(R.ev[i]);
+    P.cards[fen] = Object.assign({ fen, box: 0, due: Date.now(), reps: 0, fails: 0 }, old, { best: R.best[i], played: san, cls: R.cls[i],
+      win: winOf(side), why: moveExplain(R, i), ctx: `${gameTitle(R.rec)} · ${Math.floor(i / 2) + 1}-р нүүдэл` });
+  });
+  const all = Object.values(P.cards).sort((a, b) => a.due - b.due);
+  for (const c of all.slice(300)) delete P.cards[c.fen];
+  save();
+}
+const gameTitle = r => `${r.white} – ${r.black}`;
+function reviewGo(i) {
+  const R = S.R; if (!R) return;
+  R.i = Math.max(0, Math.min(i, R.sans.length));
+  S.game = new Chess(R.fens[R.i]); S.selected = null; S.hintSq = null; S.arrow = null; S.arrow2 = null;
+  const m = R.vm[R.i - 1];
+  S.lastMove = m ? { from: m.from, to: m.to } : null;
+  const bad = R.done && R.i > 0 && R.cls[R.i - 1];
+  if (bad) {
+    const best = moveFromUci(new Chess(R.fens[R.i - 1]), R.best[R.i - 1]);
+    if (best) S.arrow = { from: best.from, to: best.to, kind: 'answer' };
+  } else if (R.done && R.best[R.i]) {
+    const best = moveFromUci(S.game, R.best[R.i]);
+    if (best) S.arrow = { from: best.from, to: best.to, kind: 'next' };
+  }
+  renderAll();
+}
+function renderEvalBar() {
+  const bar = $('#evalbar'), R = S.R, e = S.mode === 'review' && R ? R.ev[R.i] : null;
+  bar.hidden = S.mode !== 'review' || !R;
+  bar.classList.toggle('flip', S.orient === 'b');
+  bar.firstElementChild.style.height = (e ? winOf(e) : 50) + '%';
+  bar.title = e ? evalText(e) : '';
+}
+function graphHTML(R) {
+  const n = R.sans.length, W = Math.max(n, 1), H = 100;
+  const x = i => i, y = e => H - winOf(e);
+  const pts = R.ev.slice(0, R.n || R.ev.length).filter(Boolean);
+  if (!pts.length) return '';
+  const last = pts.length - 1;
+  const line = pts.map((e, i) => `${x(i)},${y(e).toFixed(1)}`).join(' ');
+  const hits = R.fens.map((_, i) => `<rect class="hit" data-rply="${i}" x="${i - .5}" y="0" width="1" height="${H}"><title>${i ? Math.floor((i - 1) / 2) + 1 + '. ' + esc(R.sans[i - 1]) : 'Эхлэл'} ${R.ev[i] ? evalText(R.ev[i]) : ''}</title></rect>`).join('');
+  return `<svg class="graph" viewBox="0 0 ${W} ${H}" preserveAspectRatio="none" role="img" aria-label="Тоглолтын үнэлгээний график. Цагаан хэсэг нь цагааны давуу талыг харуулна.">
+    <polygon class="area" points="0,${H} ${line} ${x(last)},${H}"/>
+    <line class="mid" x1="0" y1="50" x2="${W}" y2="50"/>
+    <line class="cur" x1="${R.i}" y1="0" x2="${R.i}" y2="${H}"/>${hits}</svg>`;
+}
+function renderReviewPanel() {
+  const R = S.R, el = $('#panel');
+  if (!R) {
+    el.innerHTML = `<div><div class="eyebrow">Шинжилгээ</div><h2 class="ptitle">Тоглолтоо сонгоно уу</h2></div>
+      <p class="note">Зүүн талаас хадгалсан тоглолтоо сонгох эсвэл Lichess, Chess.com-оос PGN хуулж оруулна уу.</p>`;
+    return;
+  }
+  const r = R.rec, i = R.i, total = R.fens.length, e = R.ev[i], sans = R.sans;
+  const myBad = R.done ? R.sans.filter((_, k) => R.vm[k].color === r.color && (R.cls[k] === 'mist' || R.cls[k] === 'blun')).length : 0;
+  let info = '';
+  if (R.done && i > 0 && R.cls[i - 1]) {
+    info = `<div class="msg bad"><b>${esc(sans[i - 1])}${GLYPH_CLS[R.cls[i - 1]]}</b> ${CLS_TXT[R.cls[i - 1]]}. ${moveExplain(R, i - 1)}</div>`;
+  } else if (R.done && i > 0) info = `<div class="msg ok"><b>${esc(sans[i - 1])}</b> сайн нүүдэл.</div>`;
+  const book = R.done && !r.start ? bookStatus(sans, r.color) : null;
+  const bookMsg = book && book.mine && book.pool.length ? `<div class="msg info">Та ${Math.floor(book.ply / 2) + 1}-р нүүдэлд репертуараас гарсан: <b>${esc(sans[book.ply])}</b>, репертуарт <b>${esc(book.pool[0].moves[book.ply])}</b>.
+      <button class="linkbtn" type="button" data-act="drill-book">Энэ хувилбарыг давтах</button></div>` : '';
+  const row = (name, c) => `<span><b>${esc(name)}</b></span><span>${R.acc[c]}%</span><span>${R.tally[c].inacc}</span><span>${R.tally[c].mist}</span><span>${R.tally[c].blun}</span>`;
+  const stats = R.done ? `<div class="stats"><span class="h">Нарийвчлал</span><span class="h">%</span><span class="h">?!</span><span class="h">?</span><span class="h">??</span>${row(r.white, 'w')}${row(r.black, 'b')}</div>`
+    : `<div class="msg info" aria-live="polite">Stockfish шинжилж байна: ${R.n} / ${total}</div>`;
+  el.innerHTML = `<div><div class="eyebrow">Шинжилгээ · ${esc(r.result)}${r.reason ? ' · ' + esc(r.reason) : ''}</div><h2 class="ptitle">${esc(gameTitle(r))}</h2></div>
+    ${graphHTML(R)}
+    ${stats}
+    <div class="kv"><span>Үнэлгээ <b>${evalText(e)}</b></span>${R.pv[i] && R.pv[i].length ? `<span>Шилдэг: <b>${esc(sanLine(R.fens[i], R.pv[i], 1))}</b></span>` : ''}</div>
+    ${R.pv[i] && R.pv[i].length ? `<p class="pv">${esc(sanLine(R.fens[i], R.pv[i]))}</p>` : ''}
+    <div class="moves">${plyListHTML(sans, { cur: i - 1, cls: R.cls, click: true })}</div>
+    <div class="ctrls">
+      <button class="btn" type="button" data-rply="0" aria-label="Эхлэл">⏮</button>
+      <button class="btn" type="button" data-rply="${Math.max(0, i - 1)}" aria-label="Өмнөх">◀</button>
+      <button class="btn" type="button" data-rply="${Math.min(sans.length, i + 1)}" aria-label="Дараах">▶</button>
+      <button class="btn" type="button" data-rply="${sans.length}" aria-label="Төгсгөл">⏭</button>
+    </div>
+    ${S.msg && S.msg.type === 'bad' ? `<div class="msg bad">${S.msg.text}</div>` : ''}
+    ${info}${bookMsg}
+    ${R.done ? `<div class="actions">${myBad ? `<button class="btn primary" type="button" data-act="learn-game">Алдаанаасаа суралцах (${myBad})</button>` : ''}
+      <button class="btn" type="button" data-act="next-bad">Дараагийн алдаа</button></div>` : ''}`;
+}
+function importPgn() {
+  const g = new Chess();
+  if (!S.pgnText.trim() || !g.load_pgn(S.pgnText, { sloppy: true }) || !g.history().length) {
+    S.importErr = 'PGN уншиж чадсангүй. Тоглолтын бүтэн PGN-ийг хуулж оруулна уу.';
+    renderSide(); return;
+  }
+  const h = g.header(), moves = g.history();
+  const rec = { id: Date.now(), date: Date.now(), moves, result: h.Result || '*', reason: '', color: S.pgnColor, level: 0, label: h.Opening || '',
+    white: h.White || 'Цагаан', black: h.Black || 'Хар', start: h.FEN || undefined, an: null };
+  P.games.unshift(rec); P.games.length = Math.min(P.games.length, 30); save();
+  S.pgnText = ''; S.importErr = '';
+  openReview(rec);
+}
+function phaseSummary() {
+  const t = { o: 0, m: 0, e: 0 };
+  let n = 0;
+  for (const g of P.games) if (g.an && g.an.phases) { n++; for (const k in t) t[k] += g.an.phases[k]; }
+  if (!n) return '';
+  const names = { o: 'гараа', m: 'дунд үе', e: 'төгсгөл' }, worst = Object.keys(t).sort((a, b) => t[b] - t[a])[0];
+  const tip = { o: 'Гарааны хэсэгт давталтаа нэмээрэй.', m: 'Өдөр бүр тактик бодоорой.', e: 'Төгсгөлийн тактик сонгож бэлдээрэй.' }[worst];
+  return `<div class="field"><span class="eyebrow">Сул тал · ${n} тоглолт</span>
+    <p class="hintline">Алдаа: гараа ${t.o} · дунд үе ${t.m} · төгсгөл ${t.e}${t[worst] ? `. Хамгийн их алдаа ${names[worst]} хэсэгт. ${tip}` : ''}</p></div>`;
+}
+function renderReviewSide() {
+  const res = g => g.result === '1/2-1/2' ? '½' : g.result;
+  $('#library').innerHTML = `<div class="pad">
+    <div class="field"><span class="eyebrow">PGN оруулах</span>
+      <textarea id="pgnIn" placeholder="Lichess, Chess.com-оос тоглолтын PGN-ээ энд буулгана уу" aria-label="PGN">${esc(S.pgnText)}</textarea>
+      ${S.importErr ? `<p class="hintline" style="color:var(--bad)">${esc(S.importErr)}</p>` : ''}
+      <div class="seg">${[['w', 'Би цагаан'], ['b', 'Би хар']].map(([v, t]) => `<button type="button" class="${S.pgnColor === v ? 'on' : ''}" data-act="pgncol" data-v="${v}">${t}</button>`).join('')}</div>
+      <button class="btn primary" type="button" data-act="import">Шинжлэх</button></div>
+    ${phaseSummary()}
+    <div class="field"><span class="eyebrow">Тоглолтууд</span>
+      ${P.games.length ? `<div class="gamelist">${P.games.map(g => `<button type="button" class="gl${S.R && S.R.rec === g ? ' cur' : ''}" data-act="open-game" data-v="${g.id}">
+        <span>${esc(gameTitle(g))}</span><small>${esc(res(g))}</small>
+        <small>${new Date(g.date).toLocaleDateString('sv')}</small><small>${g.an ? g.an.acc[g.color] + '%' : 'шинжлээгүй'}</small></button>`).join('')}</div>` : '<p class="hintline">Одоогоор тоглолт алга.</p>'}</div></div>`;
+}
+
+/* ---------- Mistake cards: positions from your own games, spaced like the opening lines ---------- */
+const dueCards = () => Object.values(P.cards).filter(c => c.due <= Date.now()).sort((a, b) => a.box - b.box || a.due - b.due);
+function startCards(list, label) {
+  S.tab = 'tactics'; S.mode = 'retry'; S.arrow2 = null;
+  S.C = { queue: list.slice(), label, card: null, missed: false, solved: false, busy: false, total: list.length, fixed: 0 };
+  nextCard();
+  renderLibrary();
+}
+function nextCard() {
+  const C = S.C;
+  C.card = C.queue.shift() || null;
+  Object.assign(C, { missed: false, solved: false, busy: false });
+  S.arrow = null; S.hintSq = null; S.selected = null; S.lastMove = null;
+  if (!C.card) {
+    S.game = new Chess();
+    S.msg = { type: 'done', text: `Дууслаа: ${C.total} байрлалаас <b>${C.fixed}</b>-ийг анхны оролдлогоор олов.` };
+  } else {
+    S.game = new Chess(C.card.fen); S.orient = S.game.turn();
+    S.msg = { type: 'info', text: `Тоглолтод та <b>${esc(C.card.played)}</b> нүүсэн. Илүү сайн нүүдлийг ол.` };
+  }
+  renderAll();
+}
+function settleCard(ok) {
+  const c = S.C.card;
+  c.reps++;
+  if (ok) { c.box = Math.min(INTERVALS.length - 1, c.box + 1); c.due = Date.now() + INTERVALS[c.box]; S.C.fixed++; }
+  else { c.box = 0; c.fails++; c.due = Date.now() + INTERVALS[1]; }
+  S.C.solved = true;
+  logWork('cards');
+}
+async function retryMove(mv) {
+  const C = S.C, c = C.card;
+  const after = new Chess(c.fen); after.move({ from: mv.from, to: mv.to, promotion: mv.promotion });
+  let good = uciOf(mv) === c.best || after.in_checkmate(), reply = null;
+  if (!good) {
+    C.busy = true;
+    S.msg = { type: 'info', text: 'Шалгаж байна…' }; renderPanel();
+    const res = await safeSearch(after.fen(), { depth: 12, movetime: 1000 });
+    if (S.C !== C || C.card !== c) return;
+    C.busy = false;
+    if (!res || S.mode !== 'retry') return;
+    good = c.win - (100 - winOf(res.lines[0])) < 4;
+    reply = moveFromUci(after, res.best);
+  }
+  if (good) {
+    S.game.move({ from: mv.from, to: mv.to, promotion: mv.promotion });
+    S.lastMove = { from: mv.from, to: mv.to };
+    settleCard(!C.missed);
+    S.msg = { type: 'ok', text: `Зөв, <b>${esc(mv.san)}</b>! ${C.missed ? 'Энэ байрлал удахгүй дахин гарна.' : `Дараагийн давталт ${INTERVAL_TXT[c.box]} дараа.`}` };
+    renderAll(); return;
+  }
+  C.missed = true;
+  flash([mv.from, mv.to]);
+  S.msg = { type: 'bad', text: `<b>${esc(mv.san)}</b> хангалтгүй${reply ? `: хариуд нь <b>${esc(reply.san)}</b>` : ''}. Дахин бод.` };
+  renderPanel();
+}
+function retryHint() {
+  const C = S.C;
+  if (!C || !C.card || C.solved || C.busy) return;
+  C.missed = true;
+  S.hintSq = C.card.best.slice(0, 2);
+  S.msg = { type: 'info', text: 'Санамж: тодруулсан нүдний дүрсийг нүү.' };
+  renderAll();
+}
+function retryReveal() {
+  const C = S.C;
+  if (!C || !C.card || C.solved || C.busy) return;
+  const m = moveFromUci(S.game, C.card.best);
+  C.missed = true;
+  settleCard(false);
+  S.hintSq = null;
+  S.arrow = { from: m.from, to: m.to, kind: 'answer' };
+  S.msg = { type: 'info', text: C.card.why };
+  renderAll();
+}
+function renderRetryPanel() {
+  const C = S.C, c = C.card, el = $('#panel');
+  const msg = S.msg ? `<div class="msg ${S.msg.type}" aria-live="polite">${S.msg.text}</div>` : '';
+  if (!c) {
+    el.innerHTML = `<div><div class="eyebrow">Миний алдаа</div><h2 class="ptitle">${esc(C.label)}</h2></div>${msg}
+      <div class="actions"><button class="btn primary" type="button" data-act="next-puzzle">Тактик үргэлжлүүлэх</button></div>`;
+    return;
+  }
+  el.innerHTML = `<div><div class="eyebrow">Миний алдаа · ${C.total - C.queue.length}/${C.total}</div><h2 class="ptitle">${S.game.turn() === 'w' ? 'Цагаан' : 'Хар'} нүүнэ</h2></div>
+    <p class="hintline">${esc(c.ctx)}</p>
+    ${msg}
+    <div class="actions">${C.solved
+      ? `<button class="btn primary" type="button" data-act="next-card">Дараагийнх</button>`
+      : `<button class="btn" type="button" data-act="retry-hint" ${C.busy ? 'disabled' : ''}>Санамж (H)</button>
+         <button class="btn" type="button" data-act="retry-reveal" ${C.busy ? 'disabled' : ''}>Хариу харах</button>`}</div>`;
+}
+
+/* ---------- Tactics: Lichess puzzle database ---------- */
+const PZ_ANGLES = { mix: 'Холимог', mateIn1: '1 нүүдэлд мат', mateIn2: '2 нүүдэлд мат', fork: 'Хос дайралт', pin: 'Хүлэлт', skewer: 'Нэвт дайралт',
+  hangingPiece: 'Хамгаалалтгүй дүрс', discoveredAttack: 'Нээлттэй дайралт', backRankMate: 'Сүүлчийн эгнээний мат', sacrifice: 'Золиос', endgame: 'Төгсгөл' };
+const pzDifficulty = r => r < 1100 ? 'easiest' : r < 1350 ? 'easier' : r < 1650 ? 'normal' : r < 1900 ? 'harder' : 'hardest';
+async function fetchPuzzles(angle) {
+  const r = await fetch(`https://lichess.org/api/puzzle/batch/${angle}?nb=30&difficulty=${pzDifficulty(P.pz.rating)}`, { headers: { Accept: 'application/json' } });
+  if (!r.ok) throw new Error('puzzles ' + r.status);
+  return (await r.json()).puzzles || [];
+}
+async function nextPuzzle() {
+  const tok = ++S.pzTok;
+  Object.assign(S, { tab: 'tactics', mode: 'puzzle', PZ: null, game: new Chess(), lastMove: null, arrow: null, arrow2: null, hintSq: null, selected: null,
+    msg: { type: 'info', text: 'Тактик татаж байна…' } });
+  renderAll(); renderLibrary();
+  try {
+    if (!S.pzQ.length) S.pzQ = await fetchPuzzles(P.pz.angle);
+  } catch (e) {
+    if (tok !== S.pzTok || S.mode !== 'puzzle') return;
+    S.msg = { type: 'bad', text: 'Lichess-ээс тактик татаж чадсангүй. Интернэт холболтоо шалгаад дахин оролдоно уу.' };
+    renderPanel(); return;
+  }
+  if (tok !== S.pzTok || S.mode !== 'puzzle') return;
+  const fresh = S.pzQ.filter(p => !P.pz.seen.includes(p.puzzle.id));
+  const pool = (fresh.length ? fresh : S.pzQ).slice().sort((a, b) => Math.abs(a.puzzle.rating - P.pz.rating) - Math.abs(b.puzzle.rating - P.pz.rating));
+  const p = pool[0];
+  S.pzQ = S.pzQ.filter(x => x !== p);
+  if (!p || !setPuzzle(p)) { S.msg = { type: 'bad', text: 'Энэ төрлийн тактик олдсонгүй.' }; renderPanel(); }
+}
+function setPuzzle(p) {
+  const g = new Chess();
+  let last = null;
+  for (const s of p.game.pgn.split(' ')) { last = g.move(s); if (!last) return false; }
+  S.PZ = { id: p.puzzle.id, rating: p.puzzle.rating, themes: p.puzzle.themes, sol: p.puzzle.solution, i: 0, color: g.turn(), game: g,
+    last: { from: last.from, to: last.to }, failed: false, scored: false, done: false, busy: false };
+  Object.assign(S, { game: g, orient: g.turn(), lastMove: S.PZ.last, arrow: null, hintSq: null, selected: null,
+    msg: { type: 'info', text: `${g.turn() === 'w' ? 'Цагаан' : 'Хар'} нүүнэ. Хамгийн сайн нүүдлийг ол.` } });
+  renderAll();
+  return true;
+}
+function scorePuzzle(ok) {
+  const X = S.PZ, z = P.pz;
+  if (X.scored) return;
+  X.scored = true;
+  const expected = 1 / (1 + 10 ** ((X.rating - z.rating) / 400));
+  X.delta = Math.round(32 * ((ok ? 1 : 0) - expected));
+  z.rating = Math.max(400, z.rating + X.delta);
+  if (ok) { z.ok++; z.run++; } else { z.fail++; z.run = 0; }
+  for (const t of X.themes) if (PZ_ANGLES[t]) {
+    const s = z.themes[t] || (z.themes[t] = { ok: 0, n: 0 });
+    s.n++; if (ok) s.ok++;
+  }
+  z.seen.push(X.id); z.seen = z.seen.slice(-300);
+  logWork('pz');
+}
+function pzApply(X, uci) {
+  const m = moveFromUci(X.game, uci);
+  X.game.move({ from: m.from, to: m.to, promotion: m.promotion });
+  X.last = { from: m.from, to: m.to };
+  if (S.mode === 'puzzle') S.lastMove = X.last;
+  X.i++;
+  return m;
+}
+function puzzleDone() {
+  const X = S.PZ;
+  X.done = true; X.busy = false;
+  scorePuzzle(!X.failed);
+  if (S.mode !== 'puzzle') return;
+  S.msg = X.failed ? { type: 'info', text: `Шийдэл дууслаа. Үнэлгээ ${X.delta}.` }
+    : { type: 'done', text: `<b>Зөв!</b> Үнэлгээ +${Math.max(0, X.delta)}. Дараалан ${P.pz.run}.` };
+  renderAll(); renderLibrary();
+}
+function puzzleMove(mv) {
+  const X = S.PZ, want = X.sol[X.i];
+  const test = new Chess(X.game.fen()); test.move({ from: mv.from, to: mv.to, promotion: mv.promotion });
+  if (uciOf(mv) !== want && !(X.i === X.sol.length - 1 && test.in_checkmate())) {
+    X.failed = true; scorePuzzle(false);
+    flash([mv.from, mv.to]);
+    S.msg = { type: 'bad', text: `<b>${esc(mv.san)}</b> биш байна. Үнэлгээ ${X.delta}. Дахин оролдоорой.` };
+    renderPanel(); renderOverall(); return;
+  }
+  X.game.move({ from: mv.from, to: mv.to, promotion: mv.promotion });
+  X.last = { from: mv.from, to: mv.to }; S.lastMove = X.last; S.hintSq = null; S.arrow = null;
+  X.i++;
+  if (X.i >= X.sol.length) return puzzleDone();
+  X.busy = true;
+  S.msg = { type: 'ok', text: `Зөв, <b>${esc(mv.san)}</b>.` };
+  renderAll();
+  setTimeout(() => {
+    if (S.PZ !== X) return;
+    pzApply(X, X.sol[X.i]);
+    X.busy = false;
+    if (X.i >= X.sol.length) return puzzleDone();
+    if (S.mode !== 'puzzle') return;
+    S.msg = { type: 'info', text: 'Үргэлжлүүл.' };
+    renderAll();
+  }, 500);
+}
+function puzzleHint() {
+  const X = S.PZ;
+  if (!X || S.mode !== 'puzzle' || !interactive()) return;
+  X.failed = true;
+  S.hintSq = X.sol[X.i].slice(0, 2);
+  S.msg = { type: 'info', text: 'Санамж: тодруулсан нүдний дүрсийг нүү. Энэ тактик оноо өгөхгүй.' };
+  renderAll();
+}
+async function puzzleReveal() {
+  const X = S.PZ;
+  if (!X || X.done || X.busy) return;
+  X.failed = true; X.busy = true; S.hintSq = null;
+  while (X.i < X.sol.length && S.PZ === X) {
+    pzApply(X, X.sol[X.i]);
+    if (S.mode === 'puzzle') renderBoard();
+    await wait(550);
+  }
+  if (S.PZ === X) puzzleDone();
+}
+function renderPuzzlePanel() {
+  const X = S.PZ, z = P.pz, el = $('#panel');
+  const msg = S.msg ? `<div class="msg ${S.msg.type}" aria-live="polite">${S.msg.text}</div>` : '';
+  const done = !X || X.done;
+  const themes = X && X.done ? X.themes.filter(t => PZ_ANGLES[t]).map(t => PZ_ANGLES[t]).join(', ') : '';
+  el.innerHTML = `<div><div class="eyebrow">Тактик · ${esc(PZ_ANGLES[z.angle])}</div><h2 class="ptitle">Үнэлгээ ${z.rating}</h2></div>
+    <div class="kv"><span>Зөв <b>${z.ok}</b></span><span>Алдсан <b>${z.fail}</b></span><span>Дараалан <b>${z.run}</b></span>${X ? `<span>Тактик <b>${X.done ? X.rating : '?'}</b></span>` : ''}</div>
+    ${msg}
+    ${themes ? `<p class="hintline">Сэдэв: ${esc(themes)}</p>` : ''}
+    <div class="actions">${done
+      ? `<button class="btn primary" type="button" data-act="next-puzzle">Дараагийн тактик</button>${X ? `<a class="linkbtn" href="https://lichess.org/training/${encodeURIComponent(X.id)}" target="_blank" rel="noopener">Lichess дээр нээх</a>` : ''}`
+      : `<button class="btn" type="button" data-act="pz-hint" ${interactive() ? '' : 'disabled'}>Санамж (H)</button>
+         <button class="btn" type="button" data-act="pz-reveal" ${X.busy ? 'disabled' : ''}>Хариу харах</button>
+         <button class="btn" type="button" data-act="next-puzzle">Алгасах</button>`}</div>
+    <p class="hintline">Тактикууд: Lichess нээлттэй сан (CC0).</p>`;
+}
+function weakThemes() {
+  return Object.entries(P.pz.themes).filter(([, s]) => s.n >= 3).map(([t, s]) => ({ t, r: s.ok / s.n, n: s.n })).sort((a, b) => a.r - b.r).slice(0, 3);
+}
+function renderTacticsSide() {
+  const due = dueCards(), all = Object.keys(P.cards).length, weak = weakThemes();
+  $('#library').innerHTML = `<div class="pad">
+    <div class="field"><span class="eyebrow">Миний алдаа</span>
+      <p class="hintline">Шинжилсэн тоглолтын алдаа энд цугларч, зайтай давтагдана. Нийт ${all}, хугацаа болсон ${due.length}.</p>
+      <button class="btn" type="button" data-act="cards-due" ${due.length ? '' : 'disabled'}>Алдаагаа засах (${due.length})</button></div>
+    <div class="field"><span class="eyebrow">Сэдэв</span>
+      <div class="angles">${Object.entries(PZ_ANGLES).map(([k, v]) => `<button class="btn small${P.pz.angle === k ? ' on' : ''}" type="button" data-act="angle" data-v="${k}">${esc(v)}</button>`).join('')}</div></div>
+    ${weak.length ? `<div class="field"><span class="eyebrow">Сул сэдвүүд</span>
+      ${weak.map(w => `<button class="task" type="button" data-act="angle" data-v="${w.t}"><span>${esc(PZ_ANGLES[w.t])}</span><span>${Math.round(w.r * 100)}% · ${w.n}</span></button>`).join('')}</div>` : ''}</div>`;
+}
+
+/* ---------- Tabs, daily plan, actions ---------- */
+const TABS = [['open', 'Гараа'], ['play', 'AI-тай тоглох'], ['tactics', 'Тактик'], ['review', 'Шинжилгээ']];
+function renderTabs() {
+  $('#tabs').innerHTML = TABS.map(([k, t]) => `<button type="button" class="${S.tab === k ? 'on' : ''}" data-act="tab" data-v="${k}" ${S.tab === k ? 'aria-current="page"' : ''}>${t}</button>`).join('');
+}
+function renderSide() {
+  if (S.tab === 'play') renderPlaySide();
+  else if (S.tab === 'review') renderReviewSide();
+  else if (S.tab === 'tactics') renderTacticsSide();
+}
+function setTab(t) {
+  clearTimeout(S.oppTimer);
+  Object.assign(S, { tab: t, busy: false, selected: null, hintSq: null, arrow: null, arrow2: null, msg: null });
+  if (t === 'open') return startLearn(S.line);
+  if (t === 'play') {
+    S.mode = 'play';
+    if (S.G) {
+      S.orient = S.G.color; showGame(S.G);
+      const G = S.G;
+      S.msg = G.over ? { type: 'done', text: `${G.reason}, ${G.result}.` } : G.hold ? { type: 'bad', text: `<b>${esc(G.hold.san)}</b>: ${CLS_TXT[G.hold.cls]}. Буцааж дахин бодох уу?` }
+        : { type: 'info', text: interactive() ? 'Таны ээлж.' : 'AI бодож байна…' };
+    }
+    else { S.game = new Chess(); S.lastMove = null; S.orient = 'w'; }
+  } else if (t === 'review') {
+    S.mode = 'review';
+    if (S.R) { renderLibrary(); return reviewGo(S.R.i); }
+    S.game = new Chess(); S.lastMove = null;
+  } else if (t === 'tactics') {
+    if (S.PZ && !S.PZ.done) {
+      S.mode = 'puzzle';
+      Object.assign(S, { game: S.PZ.game, orient: S.PZ.color, lastMove: S.PZ.last, msg: { type: 'info', text: 'Хамгийн сайн нүүдлийг ол.' } });
+    } else return nextPuzzle();
+  }
+  renderLibrary(); renderAll();
+}
+function renderPlan() {
+  const d = today(), now = Date.now();
+  const lines = LINES.filter(l => peek(l.id) && peek(l.id).seen && peek(l.id).due <= now).length;
+  const cards = dueCards().length;
+  const task = (act, title, done, right) => `<button class="task${done ? ' done' : ''}" type="button" data-act="${act}"><span>${title}</span><span>${right}</span></button>`;
+  $('#plan').innerHTML = `<span class="eyebrow">Өнөөдрийн бэлтгэл</span>
+    ${task('plan-lines', 'Гараа давтах', !lines && d.n > 0, lines ? `${lines} үлдсэн` : `${d.n} хийсэн`)}
+    ${task('plan-cards', 'Алдаагаа засах', !cards && (d.cards || 0) > 0, cards ? `${cards} үлдсэн` : `${d.cards || 0} хийсэн`)}
+    ${task('plan-pz', 'Тактик бодох', (d.pz || 0) >= 10, `${d.pz || 0} / 10`)}
+    ${task('plan-game', 'Тоглоод шинжлэх', (d.reviews || 0) >= 1, `${d.reviews || 0} / 1`)}`;
+}
+function coachAction(a, b) {
+  const v = b.dataset.v;
+  const acts = {
+    tab: () => setTab(v),
+    'start-game': startGame,
+    'play-line': () => beginGame({ color: S.line.o.side, level: P.setup.level, moves: S.line.moves.slice(0, S.ply), label: S.line.name }),
+    lvl: () => { P.setup.level = +v; save(); renderSide(); },
+    col: () => { P.setup.color = v; save(); renderSide(); },
+    'play-hint': playHint, takeback,
+    resign: () => { const G = S.G; if (G && !G.over) { G.hold = null; endGame(G, G.color); } },
+    'hold-undo': () => holdUndo(false), 'hold-show': () => holdUndo(true), 'hold-keep': holdContinue,
+    'review-last': () => openReview(S.G.rec),
+    'open-game': () => openReview(P.games.find(g => g.id === +v)),
+    'learn-game': () => {
+      const R = S.R, list = R.sans.map((_, i) => P.cards[R.fens[i]]).filter((c, i) => c && R.vm[i].color === R.rec.color);
+      startCards(list, gameTitle(R.rec));
+    },
+    'next-bad': () => {
+      const R = S.R, mine = i => R.vm[i].color === R.rec.color && R.cls[i];
+      let k = R.sans.findIndex((_, i) => i >= R.i && mine(i));
+      if (k < 0) k = R.sans.findIndex((_, i) => mine(i));
+      if (k >= 0) reviewGo(k + 1);
+    },
+    'drill-book': () => { const R = S.R, b = bookStatus(R.sans, R.rec.color); startDrill([b.pool[0]], b.pool[0].name); renderLibrary(); },
+    import: importPgn,
+    pgncol: () => { S.pgnColor = v; renderSide(); },
+    'cards-due': () => startCards(dueCards().slice(0, 20), 'Хугацаа болсон алдаа'),
+    'next-card': nextCard,
+    'retry-hint': retryHint, 'retry-reveal': retryReveal,
+    'next-puzzle': nextPuzzle, 'pz-hint': puzzleHint, 'pz-reveal': puzzleReveal,
+    angle: () => { P.pz.angle = v; S.pzQ = []; save(); nextPuzzle(); },
+    'plan-lines': () => {
+      const due = LINES.filter(l => peek(l.id) && peek(l.id).seen && peek(l.id).due <= Date.now());
+      startDrill(due.length ? due : LINES, due.length ? 'Хугацаа болсон' : 'Бүх гараа');
+      renderLibrary();
+    },
+    'plan-cards': () => { const due = dueCards(); if (due.length) startCards(due.slice(0, 20), 'Хугацаа болсон алдаа'); else setTab('tactics'); },
+    'plan-pz': nextPuzzle,
+    'plan-game': () => setTab('play'),
+  };
+  if (!acts[a]) return false;
+  acts[a]();
+  return true;
+}
+document.addEventListener('change', e => {
+  if (e.target.id === 'openSel') { P.setup.opening = e.target.value; save(); renderSide(); }
+  else if (e.target.id === 'coachChk') { P.setup.coach = e.target.checked; save(); }
+});
+document.addEventListener('input', e => { if (e.target.id === 'pgnIn') S.pgnText = e.target.value; });
+
 /* ---------- Board interaction ---------- */
 function interactive() {
   if (S.mode === 'learn') return S.ply < S.line.moves.length;
+  if (S.mode === 'play') { const G = S.G; return !!G && !G.over && !G.thinking && !G.hold && G.game.turn() === G.color; }
+  if (S.mode === 'review') return false;
+  if (S.mode === 'retry') return !!S.C && !!S.C.card && !S.C.solved && !S.C.busy;
+  if (S.mode === 'puzzle') return !!S.PZ && !S.PZ.done && !S.PZ.busy && S.game.turn() === S.PZ.color;
   return !S.busy && !S.finished && S.game.turn() === userColor();
 }
 const canMovePiece = p => p && interactive() && p.color === S.game.turn();
@@ -518,10 +1465,15 @@ function clickSq(sq) {
   renderBoard();
 }
 function tryMove(from, to) {
-  const mv = S.game.moves({ square: from, verbose: true }).find(m => m.to === to && (!m.promotion || m.promotion === 'q'));
+  const promo = wantedPromotion(from, to);
+  const mv = S.game.moves({ square: from, verbose: true }).find(m => m.to === to && (!m.promotion || m.promotion === promo));
   S.selected = null;
   if (!mv) { renderBoard(); return; }
-  if (S.mode === 'learn') learnMove(mv); else drillMove(mv);
+  if (S.mode === 'learn') learnMove(mv);
+  else if (S.mode === 'play') playMove(mv);
+  else if (S.mode === 'retry') retryMove(mv);
+  else if (S.mode === 'puzzle') puzzleMove(mv);
+  else drillMove(mv);
 }
 function flash(sqs) {
   S.flash = sqs; renderBoard();
@@ -577,22 +1529,24 @@ function renderBoard() {
   renderArrow();
   const t = S.game.turn();
   $('#turn').innerHTML = `<i style="background:${t === 'w' ? '#fbfaf5' : '#1f2422'}"></i>${t === 'w' ? 'Цагааны' : 'Харын'} нүүдэл`;
+  renderEvalBar();
 }
 function center(sq) {
   const f = FILES.indexOf(sq[0]), r = +sq[1] - 1;
   return S.orient === 'w' ? [f + .5, 7 - r + .5] : [7 - f + .5, r + .5];
 }
 function renderArrow() {
-  const svg = $('#arrows');
-  if (!S.arrow) { svg.innerHTML = ''; return; }
-  const [x1, y1] = center(S.arrow.from), [x2, y2] = center(S.arrow.to);
+  $('#arrows').innerHTML = [S.arrow2, S.arrow].filter(Boolean).map(arrowHTML).join('');
+}
+function arrowHTML(a) {
+  const [x1, y1] = center(a.from), [x2, y2] = center(a.to);
   const dx = x2 - x1, dy = y2 - y1, len = Math.hypot(dx, dy), ux = dx / len, uy = dy / len, px = -uy, py = ux;
   const hl = .4, hw = .24, sw = .085;
   const ex = x2 - ux * .1, ey = y2 - uy * .1, bx = ex - ux * hl, by = ey - uy * hl, sx = x1 + ux * .18, sy = y1 + uy * .18;
   const pts = [[sx + px * sw, sy + py * sw], [bx + px * sw, by + py * sw], [bx + px * hw, by + py * hw], [ex, ey],
     [bx - px * hw, by - py * hw], [bx - px * sw, by - py * sw], [sx - px * sw, sy - py * sw]].map(p => p.map(v => v.toFixed(3)).join(',')).join(' ');
-  const color = S.arrow.kind === 'answer' ? '#1f9a4b' : '#d98b1c';
-  svg.innerHTML = `<polygon points="${pts}" fill="${color}" fill-opacity=".82"/>`;
+  const color = { answer: '#1f9a4b', played: '#c8402f' }[a.kind] || '#d98b1c';
+  return `<polygon points="${pts}" fill="${color}" fill-opacity=".82"/>`;
 }
 function movesHTML(moves, cur, upto) {
   let h = '';
@@ -623,6 +1577,10 @@ function drillMovesHTML() {
   return h;
 }
 function renderPanel() {
+  if (S.mode === 'play') return renderPlayPanel();
+  if (S.mode === 'review') return renderReviewPanel();
+  if (S.mode === 'retry') return renderRetryPanel();
+  if (S.mode === 'puzzle') return renderPuzzlePanel();
   const L = S.line, el = $('#panel');
   const seg = `<div class="seg" role="tablist">
     <button type="button" class="${S.mode === 'learn' ? 'on' : ''}" data-act="mode-learn">Судлах</button>
@@ -645,6 +1603,7 @@ function renderPanel() {
       <div class="actions">
         <button class="btn primary" type="button" data-act="drill-line">Энэ хувилбарыг давтах</button>
         <button class="btn" type="button" data-act="drill-op" data-op="${L.o.id}">Бүх ${L.o.lineObjs.length} хувилбар</button>
+        <button class="btn" type="button" data-act="play-line">Энэ байрлалаас AI-тай тоглох</button>
       </div>
       ${legend}`;
   } else {
@@ -658,7 +1617,8 @@ function renderPanel() {
       <div class="actions">${S.finished
         ? `<button class="btn primary" type="button" data-act="next-line">Дараагийн хувилбар ↵</button>
            <button class="btn" type="button" data-act="retry">Дахин</button>
-           <button class="btn" type="button" data-act="study-line">Судлах</button>`
+           <button class="btn" type="button" data-act="study-line">Судлах</button>
+           <button class="btn" type="button" data-act="play-line">Үргэлжлүүлж AI-тай тоглох</button>`
         : `<button class="btn" type="button" data-act="hint" ${interactive() ? '' : 'disabled'}>Санамж (H)</button>
            <button class="btn" type="button" data-act="reveal" ${interactive() ? '' : 'disabled'}>Хариу харах</button>
            <button class="btn" type="button" data-act="retry">Эхнээс</button>`}
@@ -673,11 +1633,13 @@ function counts(lines) {
 }
 function barHTML(c) { return `<div class="bar"><i class="m" style="width:${c.m / c.n * 100}%"></i><i class="l" style="width:${c.l / c.n * 100}%"></i></div>`; }
 function renderOverall() {
-  const c = counts(LINES), today = P.daily.date === todayKey() ? P.daily.n : 0;
+  const c = counts(LINES), reps = today().n;
   const due = LINES.filter(l => peek(l.id) && peek(l.id).seen && peek(l.id).due <= Date.now()).length;
-  $('#overall').innerHTML = `<div class="overall-row"><span>Цээжилсэн <b>${c.m} / ${c.n}</b> хувилбар</span><span>Өнөөдөр <b>${today}</b> давталт · Хугацаа болсон <b>${due}</b></span></div>${barHTML(c)}`;
+  $('#overall').innerHTML = `<div class="overall-row"><span>Цээжилсэн <b>${c.m} / ${c.n}</b> хувилбар</span><span>Өнөөдөр <b>${reps}</b> давталт · Хугацаа болсон <b>${due}</b></span></div>${barHTML(c)}
+    <div class="overall-row"><span>Тактикийн үнэлгээ <b>${P.pz.rating}</b></span><span>Цуврал <b>${P.streak.n}</b> өдөр</span></div>`;
 }
 function renderLibrary() {
+  if (S.tab !== 'open') return renderSide();
   const grp = side => {
     const ops = OPENINGS.filter(o => o.side === side);
     return `<div class="grp"><div class="grp-h"><span class="eyebrow"><span class="turn"><i style="background:${side === 'w' ? '#fbfaf5' : '#1f2422'}"></i></span>${side === 'w' ? 'Цагаанаар' : 'Хараар'}</span>
@@ -700,10 +1662,10 @@ function renderLibrary() {
       <span><i class="st failed" style="width:9px;height:9px;border-radius:50%"></i>Алдсан</span>
       <span><i class="st mastered" style="width:9px;height:9px;border-radius:50%"></i>Цээжилсэн</span></div>
     <div class="reset">${S.confirmReset
-      ? `Бүх явц устана. <button class="btn small" type="button" data-act="reset-yes">Тийм, арилгах</button><button class="linkbtn" type="button" data-act="reset-no">Болих</button>`
+      ? `Гараа, тоглолт, тактикийн бүх явц устана. <button class="btn small" type="button" data-act="reset-yes">Тийм, арилгах</button><button class="linkbtn" type="button" data-act="reset-no">Болих</button>`
       : `<button class="linkbtn" type="button" data-act="reset">Явцыг арилгах</button>`}</div>`;
 }
-function renderAll() { renderBoard(); renderPanel(); renderOverall(); }
+function renderAll() { renderTabs(); renderBoard(); renderPanel(); renderOverall(); renderPlan(); }
 
 /* ---------- Events ---------- */
 $('#library').addEventListener('toggle', e => {
@@ -715,8 +1677,11 @@ document.addEventListener('click', e => {
   if (ln) { startLearn(byId(ln.dataset.line)); return; }
   const mvb = e.target.closest('.mv[data-ply]');
   if (mvb && S.mode === 'learn') { S.msg = null; setLearnPos(+mvb.dataset.ply); return; }
+  const rp = e.target.closest('[data-rply]');
+  if (rp && S.mode === 'review') { reviewGo(+rp.dataset.rply); return; }
   const b = e.target.closest('[data-act]'); if (!b) return;
   const a = b.dataset.act;
+  if (coachAction(a, b)) return;
   if (a === 'first') setLearnPos(0);
   else if (a === 'prev') setLearnPos(S.ply - 1);
   else if (a === 'next') setLearnPos(S.ply + 1);
@@ -735,12 +1700,18 @@ document.addEventListener('click', e => {
   else if (a === 'reveal') revealAnswer(true);
   else if (a === 'reset') { S.confirmReset = true; renderLibrary(); }
   else if (a === 'reset-no') { S.confirmReset = false; renderLibrary(); }
-  else if (a === 'reset-yes') { P = { lines: {}, daily: { date: '', n: 0 } }; save(); S.confirmReset = false; renderLibrary(); renderAll(); }
+  else if (a === 'reset-yes') { P = blankProgress(); S.G = S.R = S.C = S.PZ = null; save(); S.confirmReset = false; renderLibrary(); renderAll(); }
 });
 $('#flipBtn').addEventListener('click', () => { S.orient = S.orient === 'w' ? 'b' : 'w'; renderBoard(); });
 document.addEventListener('keydown', e => {
-  if (e.target.closest('input,textarea')) return;
-  if (S.mode === 'learn') {
+  if (e.target.closest('input,textarea,select')) return;
+  if (S.mode === 'review') {
+    const R = S.R; if (!R) return;
+    if (e.key === 'ArrowRight') { reviewGo(R.i + 1); e.preventDefault(); }
+    else if (e.key === 'ArrowLeft') { reviewGo(R.i - 1); e.preventDefault(); }
+  } else if (S.mode === 'play' || S.mode === 'puzzle' || S.mode === 'retry') {
+    if (e.key === 'h' || e.key === 'H' || e.key === 'һ') { if (S.mode === 'play') playHint(); else if (S.mode === 'puzzle') puzzleHint(); else retryHint(); }
+  } else if (S.mode === 'learn') {
     if (e.key === 'ArrowRight') { setLearnPos(S.ply + 1); e.preventDefault(); }
     else if (e.key === 'ArrowLeft') { setLearnPos(S.ply - 1); e.preventDefault(); }
   } else {
@@ -749,7 +1720,7 @@ document.addEventListener('keydown', e => {
   }
 });
 // Refresh "due" labels once a minute
-setInterval(() => { renderLibrary(); renderOverall(); }, 6e4);
+setInterval(() => { if (S.tab === 'open') renderLibrary(); renderOverall(); renderPlan(); }, 6e4);
 
 startLearn(S.line);
 </script>
