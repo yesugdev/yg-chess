@@ -1074,8 +1074,8 @@ function importPgn() {
     S.importErr = 'PGN уншиж чадсангүй. Тоглолтын бүтэн PGN-ийг хуулж оруулна уу.';
     renderSide(); return;
   }
-  const h = g.header(), moves = g.history();
-  const rec = { id: Date.now(), date: Date.now(), moves, result: h.Result || '*', reason: '', color: S.pgnColor, level: 0, label: h.Opening || '',
+  const h = g.header(), moves = g.history(), tail = S.pgnText.trim().match(/(1-0|0-1|1\/2-1\/2)$/);
+  const rec = { id: Date.now(), date: Date.now(), moves, result: h.Result || (tail ? tail[1] : '*'), reason: '', color: S.pgnColor, level: 0, label: h.Opening || '',
     white: h.White || 'Цагаан', black: h.Black || 'Хар', start: h.FEN || undefined, an: null };
   P.games.unshift(rec); P.games.length = Math.min(P.games.length, 30); save();
   S.pgnText = ''; S.importErr = '';
