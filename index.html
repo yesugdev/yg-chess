@@ -215,6 +215,18 @@ select:focus-visible, textarea:focus-visible { outline: 2px solid var(--accent);
 .gamelist { display: grid; gap: 1px; max-height: 320px; overflow-y: auto; }
 .angles { display: flex; flex-wrap: wrap; gap: 5px; }
 .angles .btn.on { background: var(--accent); border-color: var(--accent); color: var(--surface); }
+
+/* Position editor */
+.palette { display: grid; grid-template-columns: repeat(6, 1fr); gap: 4px; }
+.palette { max-width: 420px; }
+.tool { aspect-ratio: 1; border: 1px solid var(--line); background: var(--sq-light); border-radius: 6px; display: grid; place-items: center; padding: 0; touch-action: none; container-type: inline-size; }
+.tool.dk { background: var(--sq-dark); }
+.tool.on { box-shadow: 0 0 0 2px var(--accent); border-color: var(--accent); }
+.tool .pc { font-size: 72cqw; transform: none; }
+.tool.erase { grid-column: 1 / -1; aspect-ratio: auto; padding: 6px; background: var(--surface); font-size: 13.5px; font-weight: 500; }
+.castles { display: grid; grid-template-columns: 1fr 1fr; gap: 4px 12px; }
+.check.off { color: var(--muted); opacity: .6; }
+textarea.fen { min-height: 0; height: 3.6em; word-break: break-all; }
 </style>
 
 <header class="top">
@@ -696,12 +708,16 @@ function bookStatus(sans, color) {
   }
   return { ply: sans.length, mine: false, pool };
 }
-function plyListHTML(sans, { cur = -1, cls = [], click = false, pending = false } = {}) {
+function plyListHTML(sans, { cur = -1, cls = [], click = false, pending = false, start = null } = {}) {
   let h = '';
-  const total = pending ? sans.length + 1 : sans.length;
+  // A custom start position may have black to move first or a later move number
+  const f = start ? start.split(' ') : null, off = f && f[1] === 'b' ? 1 : 0, no0 = f ? (+f[5] || 1) : 1;
+  const total = (pending ? sans.length + 1 : sans.length) + off;
   for (let i = 0; i < total; i += 2) {
-    h += `<span class="num">${i / 2 + 1}.</span>`;
-    for (const j of [i, i + 1]) {
+    h += `<span class="num">${no0 + i / 2}.</span>`;
+    for (const v of [i, i + 1]) {
+      const j = v - off;
+      if (j < 0) { h += '<span class="mv pending">…</span>'; continue; }
       if (j >= sans.length) { h += j === sans.length && pending ? '<span class="mv pending">…</span>' : '<span></span>'; continue; }
       const c = ['mv'];
       if (cls[j]) c.push(cls[j]);
@@ -739,11 +755,12 @@ function startGame() {
   const color = o ? o.side : st.color === 'r' ? (Math.random() < .5 ? 'w' : 'b') : st.color;
   beginGame({ color, level: st.level, book: o ? o.lineObjs : null, label: o ? o.name : '' });
 }
-function beginGame({ color, level, moves = [], book = null, label = '' }) {
+function beginGame({ color, level, moves = [], book = null, label = '', fen = null }) {
   clearTimeout(S.oppTimer);
-  const game = new Chess();
+  if (S.ED) S.ED.active = false;
+  const game = fen ? new Chess(fen) : new Chess();
   moves.forEach(m => game.move(m));
-  const G = S.G = { id: Date.now(), game, color, level, book, label, base: moves.length, over: false, result: '', reason: '',
+  const G = S.G = { id: Date.now(), game, color, level, book, label, start: fen, base: moves.length, over: false, result: '', reason: '',
     outcome: '', pre: null, hold: null, thinking: false, checking: false, hints: 0, rec: null };
   Object.assign(S, { tab: 'play', mode: 'play', orient: color, selected: null, hintSq: null, arrow: null, arrow2: null, busy: false });
   showGame(G);
@@ -767,6 +784,7 @@ function nextTurn(G) {
   paintGame(G);
 }
 function bookNote(G, sans) {
+  if (G.start) return '';
   const b = bookStatus(sans, G.color);
   if (b.ply >= sans.length) return sans.length ? ' Та репертуарын дотор байна.' : '';
   if (b.ply !== sans.length - 1) return '';
@@ -865,7 +883,7 @@ function endGame(G, resignedBy) {
   G.outcome = result === '1/2-1/2' ? 'd' : result === mine ? 'w' : 'l';
   const moves = g.history();
   if (moves.length - G.base >= 2) {
-    G.rec = { id: G.id, date: Date.now(), moves, result, reason, color: G.color, level: G.level, label: G.label,
+    G.rec = { id: G.id, date: Date.now(), start: G.start || undefined, moves, result, reason, color: G.color, level: G.level, label: G.label,
       white: G.color === 'w' ? 'Та' : `AI ${G.level}`, black: G.color === 'b' ? 'Та' : `AI ${G.level}`, hints: G.hints, an: null };
     P.games.unshift(G.rec); P.games.length = Math.min(P.games.length, 30);
     const s = P.levels[G.level] || (P.levels[G.level] = { w: 0, d: 0, l: 0 });
@@ -884,13 +902,16 @@ function renderPlayPanel() {
   if (!G) {
     el.innerHTML = `<div><div class="eyebrow">AI-тай тоглох</div><h2 class="ptitle">Түвшингээ сонгоод эхэл</h2></div>
       <p class="note">Дасгалжуулагч асаалттай үед алдаа гаргамагц анхааруулж, нүүдлээ буцаах боломж өгнө. Тоглолт дуусахад Stockfish бүх нүүдлийг шинжилнэ.</p>
-      <div class="actions"><button class="btn primary" type="button" data-act="start-game">Тоглолт эхлэх</button></div>`;
+      <div class="actions"><button class="btn primary" type="button" data-act="start-game">Тоглолт эхлэх</button>
+        <button class="btn" type="button" data-act="edit-open">Байрлал тохируулж тоглох</button></div>`;
     return;
   }
   const lv = LEVELS[G.level - 1], sans = G.game.history();
   let actions;
   if (G.over) actions = `${G.rec ? '<button class="btn primary" type="button" data-act="review-last">Шинжлэх</button>' : ''}
-    <button class="btn" type="button" data-act="start-game">Шинэ тоглолт</button>`;
+    ${G.start ? '<button class="btn" type="button" data-act="replay-start">Энэ байрлалаас дахин</button>' : ''}
+    <button class="btn" type="button" data-act="start-game">Шинэ тоглолт</button>
+    <button class="btn" type="button" data-act="edit-game">Байрлал засах</button>`;
   else if (G.hold) actions = `<button class="btn primary" type="button" data-act="hold-undo">Буцааж бодох</button>
     <button class="btn" type="button" data-act="hold-show">Зөв нүүдэл харах</button>
     <button class="btn" type="button" data-act="hold-keep">Үргэлжлүүлэх</button>`;
@@ -899,12 +920,21 @@ function renderPlayPanel() {
     <button class="btn" type="button" data-act="resign" ${G.thinking ? 'disabled' : ''}>Бууж өгөх</button>`;
   el.innerHTML = `<div><div class="eyebrow">AI ${G.level}: ${esc(lv.name)} · та ${G.color === 'w' ? 'цагаан' : 'хар'}</div>
       <h2 class="ptitle">${G.label ? esc(G.label) : 'Чөлөөт тоглолт'}</h2></div>
-    <div class="moves">${plyListHTML(sans, { cur: sans.length - 1, pending: !G.over })}</div>
+    <div class="moves">${plyListHTML(sans, { cur: sans.length - 1, pending: !G.over, start: G.start })}</div>
     ${msg}
     <div class="actions">${actions}</div>`;
 }
 function renderPlaySide() {
-  const st = P.setup, lv = LEVELS[st.level - 1], rec = P.levels[st.level];
+  const st = P.setup, lv = LEVELS[st.level - 1], rec = P.levels[st.level], editing = S.mode === 'edit';
+  const lvlField = `<div class="field"><span class="eyebrow">Түвшин</span>
+      <div class="lvls">${LEVELS.map((_, i) => `<button type="button" class="${st.level === i + 1 ? 'on' : ''}" data-act="lvl" data-v="${i + 1}" aria-label="Түвшин ${i + 1}">${i + 1}</button>`).join('')}</div>
+      <p class="hintline">${esc(lv.name)}${rec ? ` · Ялалт ${rec.w}, тэнцээ ${rec.d}, ялагдал ${rec.l}` : ''}</p></div>`;
+  const coachField = `<label class="check"><input type="checkbox" id="coachChk" ${st.coach ? 'checked' : ''}><span>Дасгалжуулагч: алдаа гаргамагц анхааруулах</span></label>`;
+  if (editing) {
+    $('#library').innerHTML = `<div class="pad">${lvlField}${coachField}
+      <p class="hintline">Өнгө, ээлж, сэлгэлтийг «Байрлал тохируулах» хэсгээс сонгоно.</p></div>`;
+    return;
+  }
   $('#library').innerHTML = `<div class="pad">
     <div class="field"><span class="eyebrow">Түвшин</span>
       <div class="lvls">${LEVELS.map((_, i) => `<button type="button" class="${st.level === i + 1 ? 'on' : ''}" data-act="lvl" data-v="${i + 1}" aria-label="Түвшин ${i + 1}">${i + 1}</button>`).join('')}</div>
@@ -914,8 +944,148 @@ function renderPlaySide() {
       <p class="hintline">${st.opening ? 'AI таны давтаж буй хувилбаруудаар хариулж, гараа дуусмагц өөрөө тоглоно.' : 'Гараа сонговол тэр гарааны хувилбаруудаар бэлтгэнэ.'}</p></div>
     ${st.opening ? '' : `<div class="field"><span class="eyebrow">Өнгө</span>
       <div class="seg three">${[['w', 'Цагаан'], ['r', 'Санамсаргүй'], ['b', 'Хар']].map(([v, t]) => `<button type="button" class="${st.color === v ? 'on' : ''}" data-act="col" data-v="${v}">${t}</button>`).join('')}</div></div>`}
-    <label class="check"><input type="checkbox" id="coachChk" ${st.coach ? 'checked' : ''}><span>Дасгалжуулагч: алдаа гаргамагц анхааруулах</span></label>
-    <button class="btn primary" type="button" data-act="start-game">Тоглолт эхлэх</button></div>`;
+    ${coachField}
+    <button class="btn primary" type="button" data-act="start-game">Тоглолт эхлэх</button>
+    <button class="btn" type="button" data-act="edit-open">Байрлал тохируулж тоглох</button></div>`;
+}
+
+/* ---------- Position editor: set up any position, then play it against the engine ---------- */
+const START_FEN = new Chess().fen();
+const SQS = [];
+for (let r = 8; r >= 1; r--) for (const f of FILES) SQS.push(f + r);
+const isAt = (pos, sq, color, type) => !!pos[sq] && pos[sq].color === color && pos[sq].type === type;
+// Accepts a full FEN or just the board part
+function parseFen(text) {
+  const parts = text.trim().split(/\s+/);
+  if (!parts[0]) return null;
+  const fen = parts.concat(['w', '-', '-', '0', '1'].slice(parts.length - 1)).slice(0, 6).join(' ');
+  const g = new Chess();
+  if (!g.load(fen)) return null;
+  const pos = {};
+  for (const sq of SQS) { const p = g.get(sq); if (p) pos[sq] = { type: p.type, color: p.color }; }
+  const c = fen.split(' ')[2];
+  return { pos, turn: g.turn(), castle: { K: c.includes('K'), Q: c.includes('Q'), k: c.includes('k'), q: c.includes('q') } };
+}
+function boardFen(pos) {
+  const rows = [];
+  for (let r = 8; r >= 1; r--) {
+    let row = '', empty = 0;
+    for (const f of FILES) {
+      const p = pos[f + r];
+      if (!p) { empty++; continue; }
+      if (empty) { row += empty; empty = 0; }
+      row += p.color === 'w' ? p.type.toUpperCase() : p.type;
+    }
+    rows.push(row + (empty || ''));
+  }
+  return rows.join('/');
+}
+const castleOk = pos => ({
+  K: isAt(pos, 'e1', 'w', 'k') && isAt(pos, 'h1', 'w', 'r'), Q: isAt(pos, 'e1', 'w', 'k') && isAt(pos, 'a1', 'w', 'r'),
+  k: isAt(pos, 'e8', 'b', 'k') && isAt(pos, 'h8', 'b', 'r'), q: isAt(pos, 'e8', 'b', 'k') && isAt(pos, 'a8', 'b', 'r'),
+});
+function editorFen(E) {
+  const ok = castleOk(E.pos), c = [...'KQkq'].filter(k => E.castle[k] && ok[k]).join('') || '-';
+  return `${boardFen(E.pos)} ${E.turn} ${c} - 0 1`;
+}
+// Stockfish crashes on impossible positions, so anything it can't handle is caught here
+function editorProblem(E) {
+  const all = Object.entries(E.pos), side = c => c === 'w' ? 'Цагаан' : 'Хар';
+  for (const c of ['w', 'b']) {
+    const kings = all.filter(([, p]) => p.color === c && p.type === 'k').length;
+    if (!kings) return `${side(c)} ноён самбар дээр алга.`;
+    if (all.filter(([, p]) => p.color === c).length > 16) return `${side(c)} 16-аас олон дүрстэй байна.`;
+    if (all.filter(([, p]) => p.color === c && p.type === 'p').length > 8) return `${side(c)} 8-аас олон хүүтэй байна.`;
+  }
+  if (all.some(([sq, p]) => p.type === 'p' && (sq[1] === '1' || sq[1] === '8'))) return 'Хүү 1 эсвэл 8-р эгнээнд байж болохгүй.';
+  const fen = editorFen(E), other = E.turn === 'w' ? 'b' : 'w';
+  if (new Chess(fen.replace(` ${E.turn} `, ` ${other} `)).in_check())
+    return `${side(other)} ноён шаг дор байхад ${side(E.turn).toLowerCase()} нүүх боломжгүй. Ээлжийг солино уу.`;
+  const g = new Chess(fen);
+  if (g.in_checkmate()) return 'Энэ байрлалд аль хэдийн мат болсон байна.';
+  if (g.in_stalemate()) return 'Энэ байрлалд пат болсон — нүүх нүүдэл алга.';
+  if (g.insufficient_material()) return 'Мат тавих хангалттай дүрс алга.';
+  return '';
+}
+// The board renderer reads S.game; while editing it sees this view of the editor position
+const editView = { get: sq => S.ED.pos[sq] || null, turn: () => S.ED.turn, in_check: () => false, moves: () => [] };
+function openEditor(fen, me) {
+  clearTimeout(S.oppTimer);
+  const src = (fen && parseFen(fen)) || parseFen(P.setup.editFen || START_FEN) || parseFen(START_FEN);
+  const old = S.ED;
+  S.ED = Object.assign({ tool: old ? old.tool : { color: 'w', type: 'q' }, me: me || (old ? old.me : 'w'), active: true }, src);
+  if (fen) { P.setup.editFen = editorFen(S.ED); save(); }
+  showEditor();
+}
+function showEditor() {
+  S.ED.active = true;
+  Object.assign(S, { tab: 'play', mode: 'edit', game: editView, selected: null, hintSq: null, arrow: null, arrow2: null, lastMove: null, orient: S.ED.me, msg: null });
+  renderLibrary(); renderAll();
+}
+function editorChanged() {
+  P.setup.editFen = editorFen(S.ED); save();
+  S.msg = null; S.selected = null;
+  renderBoard(); renderPanel();
+}
+function editPlace(sq, p) {
+  const E = S.ED;
+  if (p.type === 'p' && (sq[1] === '1' || sq[1] === '8')) {
+    S.msg = { type: 'bad', text: 'Хүүг 1 эсвэл 8-р эгнээнд тавьж болохгүй.' };
+    renderPanel(); flash([sq]); return false;
+  }
+  // One king per side: placing a king moves it
+  if (p.type === 'k') for (const s in E.pos) if (isAt(E.pos, s, p.color, 'k')) delete E.pos[s];
+  E.pos[sq] = { type: p.type, color: p.color };
+  return true;
+}
+function editClick(sq) {
+  const E = S.ED, t = E.tool, cur = E.pos[sq];
+  if (t === 'x' || (cur && cur.type === t.type && cur.color === t.color)) delete E.pos[sq];
+  else if (!editPlace(sq, t)) return;
+  editorChanged();
+}
+// from = null when dragged in from the palette; to = null when dropped off the board
+function editDrop(from, to, p) {
+  const E = S.ED;
+  S.selected = null;
+  if (from && from === to) return renderBoard();
+  if (!to) { if (!from) return renderBoard(); delete E.pos[from]; return editorChanged(); }
+  if (from) delete E.pos[from];
+  if (!editPlace(to, p)) { if (from) E.pos[from] = p; renderBoard(); return; }
+  editorChanged();
+}
+function editorPlay() {
+  const E = S.ED, err = editorProblem(E);
+  if (err) { S.msg = { type: 'bad', text: err }; renderPanel(); return; }
+  beginGame({ color: E.me, level: P.setup.level, fen: editorFen(E), label: 'Өөрийн байрлал' });
+}
+function renderEditPanel() {
+  const E = S.ED, el = $('#panel'), ok = castleOk(E.pos);
+  const on = t => E.tool === 'x' ? t === 'x' : E.tool.color + E.tool.type === t;
+  const row = c => [...'kqrbnp'].map(t => `<button type="button" class="tool${c === 'b' ? ' dk' : ''}${on(c + t) ? ' on' : ''}" data-act="tool" data-tool="${c + t}"
+    aria-label="${c === 'w' ? 'Цагаан' : 'Хар'} ${PIECE_NAME[t]}"><span class="pc ${c}">${GLYPH[t]}</span></button>`).join('');
+  const cb = (k, label) => `<label class="check${ok[k] ? '' : ' off'}"><input type="checkbox" data-castle="${k}" ${E.castle[k] && ok[k] ? 'checked' : ''} ${ok[k] ? '' : 'disabled'}><span>${label}</span></label>`;
+  const seg = (act, cur, opts) => `<div class="seg">${opts.map(([v, t]) => `<button type="button" class="${cur === v ? 'on' : ''}" data-act="${act}" data-v="${v}">${t}</button>`).join('')}</div>`;
+  const msg = S.msg ? `<div class="msg ${S.msg.type}" aria-live="polite">${S.msg.text}</div>` : '';
+  el.innerHTML = `<div><div class="eyebrow">AI-тай тоглох · байрлал тохируулах</div><h2 class="ptitle">Хүссэн дүрсээ байрлуул</h2></div>
+    <div class="palette" role="toolbar" aria-label="Дүрс">${row('w')}${row('b')}
+      <button type="button" class="tool erase${on('x') ? ' on' : ''}" data-act="tool" data-tool="x">✕ Арилгах</button></div>
+    <p class="hintline">Дүрс сонгоод нүд дээр дар (дахин дарвал арилна). Самбар дээрх дүрсийг чирж зөөнө, самбараас гаргаж хаявал устна. Баруун товч — арилгах.</p>
+    <div class="actions">
+      <button class="btn small" type="button" data-act="ed-start">Эхний байрлал</button>
+      <button class="btn small" type="button" data-act="ed-clear">Хоосон самбар</button>
+      ${S.G ? '<button class="btn small" type="button" data-act="edit-game">Тоглолтоос авах</button>' : ''}</div>
+    <div class="field"><span class="eyebrow">Ээлж</span>${seg('ed-turn', E.turn, [['w', 'Цагаан нүүнэ'], ['b', 'Хар нүүнэ']])}</div>
+    <div class="field"><span class="eyebrow">Би</span>${seg('ed-me', E.me, [['w', 'Цагаанаар'], ['b', 'Хараар']])}</div>
+    <div class="field"><span class="eyebrow">Сэлгэлт</span>
+      <div class="castles">${cb('K', 'Цагаан O-O')}${cb('Q', 'Цагаан O-O-O')}${cb('k', 'Хар O-O')}${cb('q', 'Хар O-O-O')}</div></div>
+    <div class="field"><span class="eyebrow">FEN</span>
+      <textarea id="edFen" class="fen" spellcheck="false" aria-label="FEN">${esc(editorFen(E))}</textarea>
+      <p class="hintline">FEN буулгаад самбараас гадуур дарвал ачаална.</p></div>
+    ${msg}
+    <div class="actions">
+      <button class="btn primary" type="button" data-act="ed-play">Энэ байрлалаас тоглох</button>
+      <button class="btn" type="button" data-act="ed-exit">Болих</button></div>`;
 }
 
 /* ---------- Game review ---------- */
@@ -1056,7 +1226,7 @@ function renderReviewPanel() {
     ${stats}
     <div class="kv"><span>Үнэлгээ <b>${evalText(e)}</b></span>${R.pv[i] && R.pv[i].length ? `<span>Шилдэг: <b>${esc(sanLine(R.fens[i], R.pv[i], 1))}</b></span>` : ''}</div>
     ${R.pv[i] && R.pv[i].length ? `<p class="pv">${esc(sanLine(R.fens[i], R.pv[i]))}</p>` : ''}
-    <div class="moves">${plyListHTML(sans, { cur: i - 1, cls: R.cls, click: true })}</div>
+    <div class="moves">${plyListHTML(sans, { cur: i - 1, cls: R.cls, click: true, start: r.start })}</div>
     <div class="ctrls">
       <button class="btn" type="button" data-rply="0" aria-label="Эхлэл">⏮</button>
       <button class="btn" type="button" data-rply="${Math.max(0, i - 1)}" aria-label="Өмнөх">◀</button>
@@ -1360,6 +1530,7 @@ function setTab(t) {
   Object.assign(S, { tab: t, busy: false, selected: null, hintSq: null, arrow: null, arrow2: null, msg: null });
   if (t === 'open') return startLearn(S.line);
   if (t === 'play') {
+    if (S.ED && S.ED.active) return showEditor();
     S.mode = 'play';
     if (S.G) {
       S.orient = S.G.color; showGame(S.G);
@@ -1400,6 +1571,16 @@ function coachAction(a, b) {
     lvl: () => { P.setup.level = +v; save(); renderSide(); },
     col: () => { P.setup.color = v; save(); renderSide(); },
     'play-hint': playHint, takeback,
+    'edit-open': () => openEditor(),
+    'edit-game': () => S.G && openEditor(S.G.game.fen(), S.G.color),
+    'replay-start': () => { const G = S.G; if (G && G.start) beginGame({ color: G.color, level: P.setup.level, fen: G.start, label: G.label }); },
+    tool: () => { const t = b.dataset.tool; S.ED.tool = t === 'x' ? 'x' : { color: t[0], type: t[1] }; renderPanel(); },
+    'ed-start': () => { Object.assign(S.ED, parseFen(START_FEN)); editorChanged(); },
+    'ed-clear': () => { S.ED.pos = {}; editorChanged(); },
+    'ed-turn': () => { S.ED.turn = v; editorChanged(); },
+    'ed-me': () => { S.ED.me = v; S.orient = v; renderBoard(); renderPanel(); },
+    'ed-play': editorPlay,
+    'ed-exit': () => { S.ED.active = false; setTab('play'); },
     resign: () => { const G = S.G; if (G && !G.over) { G.hold = null; endGame(G, G.color); } },
     'hold-undo': () => holdUndo(false), 'hold-show': () => holdUndo(true), 'hold-keep': holdContinue,
     'review-last': () => openReview(S.G.rec),
@@ -1438,11 +1619,18 @@ function coachAction(a, b) {
 document.addEventListener('change', e => {
   if (e.target.id === 'openSel') { P.setup.opening = e.target.value; save(); renderSide(); }
   else if (e.target.id === 'coachChk') { P.setup.coach = e.target.checked; save(); }
+  else if (e.target.dataset.castle && S.ED) { S.ED.castle[e.target.dataset.castle] = e.target.checked; editorChanged(); }
+  else if (e.target.id === 'edFen' && S.ED) {
+    const src = parseFen(e.target.value);
+    if (!src) { S.msg = { type: 'bad', text: 'FEN буруу байна. Жишээ: <code>8/8/8/4k3/8/8/4P3/4K3 w - - 0 1</code>' }; renderPanel(); return; }
+    Object.assign(S.ED, src); editorChanged();
+  }
 });
 document.addEventListener('input', e => { if (e.target.id === 'pgnIn') S.pgnText = e.target.value; });
 
 /* ---------- Board interaction ---------- */
 function interactive() {
+  if (S.mode === 'edit') return false;
   if (S.mode === 'learn') return S.ply < S.line.moves.length;
   if (S.mode === 'play') { const G = S.G; return !!G && !G.over && !G.thinking && !G.hold && G.game.turn() === G.color; }
   if (S.mode === 'review') return false;
@@ -1482,23 +1670,40 @@ function flash(sqs) {
 const boardEl = $('#board'), ghost = $('#ghost');
 boardEl.addEventListener('pointerdown', e => {
   const sq = sqFromPoint(e.clientX, e.clientY); if (!sq) return;
-  const p = S.game.get(sq);
-  if (canMovePiece(p)) { S.drag = { from: sq, x: e.clientX, y: e.clientY, moved: false, p }; boardEl.setPointerCapture(e.pointerId); }
+  const p = S.game.get(sq), edit = S.mode === 'edit';
+  if (edit && e.button === 2) { S.drag = null; if (p) { delete S.ED.pos[sq]; editorChanged(); } return; }
+  if (edit ? p : canMovePiece(p)) { S.drag = { from: sq, x: e.clientX, y: e.clientY, moved: false, p }; boardEl.setPointerCapture(e.pointerId); }
   else S.drag = null;
 });
-boardEl.addEventListener('pointermove', e => {
-  const d = S.drag; if (!d) return;
+boardEl.addEventListener('contextmenu', e => { if (S.mode === 'edit') e.preventDefault(); });
+function dragMove(d, e) {
   if (!d.moved && Math.hypot(e.clientX - d.x, e.clientY - d.y) > 5) {
     d.moved = true; S.selected = d.from; renderBoard();
     ghost.className = 'ghost ' + d.p.color; ghost.textContent = GLYPH[d.p.type];
     ghost.style.fontSize = (boardEl.clientWidth * .104) + 'px'; ghost.hidden = false;
   }
   if (d.moved) { const r = $('#boardWrap').getBoundingClientRect(); ghost.style.left = (e.clientX - r.left) + 'px'; ghost.style.top = (e.clientY - r.top) + 'px'; }
-});
+}
+boardEl.addEventListener('pointermove', e => { if (S.drag && !S.drag.palette) dragMove(S.drag, e); });
 boardEl.addEventListener('pointerup', e => {
   const sq = sqFromPoint(e.clientX, e.clientY), d = S.drag; S.drag = null; ghost.hidden = true;
+  if (S.mode === 'edit') { if (d && d.moved) editDrop(d.from, sq, d.p); else if (sq) editClick(sq); return; }
   if (d && d.moved) { if (sq && sq !== d.from) tryMove(d.from, sq); else renderBoard(); }
   else if (sq) clickSq(sq);
+});
+// Editor palette: click picks the piece, dragging it onto the board places it
+document.addEventListener('pointerdown', e => {
+  const b = e.target.closest('[data-tool]');
+  if (!b || S.mode !== 'edit' || b.dataset.tool === 'x' || e.button !== 0) return;
+  const t = b.dataset.tool;
+  S.drag = { from: null, p: { color: t[0], type: t[1] }, x: e.clientX, y: e.clientY, moved: false, palette: true };
+  b.setPointerCapture(e.pointerId);
+});
+document.addEventListener('pointermove', e => { if (S.drag && S.drag.palette) dragMove(S.drag, e); });
+document.addEventListener('pointerup', e => {
+  const d = S.drag; if (!d || !d.palette) return;
+  S.drag = null; ghost.hidden = true;
+  if (d.moved) { S.ED.tool = d.p; editDrop(null, sqFromPoint(e.clientX, e.clientY), d.p); }
 });
 boardEl.addEventListener('pointercancel', () => { S.drag = null; ghost.hidden = true; renderBoard(); });
 
@@ -1577,6 +1782,7 @@ function drillMovesHTML() {
   return h;
 }
 function renderPanel() {
+  if (S.mode === 'edit') return renderEditPanel();
   if (S.mode === 'play') return renderPlayPanel();
   if (S.mode === 'review') return renderReviewPanel();
   if (S.mode === 'retry') return renderRetryPanel();
@@ -1704,7 +1910,7 @@ document.addEventListener('click', e => {
 });
 $('#flipBtn').addEventListener('click', () => { S.orient = S.orient === 'w' ? 'b' : 'w'; renderBoard(); });
 document.addEventListener('keydown', e => {
-  if (e.target.closest('input,textarea,select')) return;
+  if (e.target.closest('input,textarea,select') || S.mode === 'edit') return;
   if (S.mode === 'review') {
     const R = S.R; if (!R) return;
     if (e.key === 'ArrowRight') { reviewGo(R.i + 1); e.preventDefault(); }
