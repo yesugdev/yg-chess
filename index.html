@@ -226,13 +226,19 @@ select:focus-visible, textarea:focus-visible { outline: 2px solid var(--accent);
 .tool.erase { grid-column: 1 / -1; aspect-ratio: auto; padding: 6px; background: var(--surface); font-size: 13.5px; font-weight: 500; }
 .castles { display: grid; grid-template-columns: 1fr 1fr; gap: 4px 12px; }
 .check.off { color: var(--muted); opacity: .6; }
+.keyrow { display: flex; gap: 6px; }
+.keyrow input { flex: 1; min-width: 0; font: inherit; color: inherit; background: var(--bg); border: 1px solid var(--line); border-radius: 8px; padding: 7px 9px; }
+.filebtn { display: inline-flex; align-items: center; justify-content: center; gap: 6px; }
+.filebtn.off { opacity: .45; pointer-events: none; }
+.scanprev { display: block; max-width: 100%; max-height: 200px; border-radius: 8px; border: 1px solid var(--line); }
+.board-wrap.dropping { outline: 3px dashed var(--accent); outline-offset: 4px; border-radius: 8px; }
 textarea.fen { min-height: 0; height: 3.6em; word-break: break-all; }
 </style>
 
 <header class="top">
   <div class="brand">
     <h1>Шатрын Дасгалжуулагч</h1>
-    <p>Гараагаа цээжил, Stockfish-тэй тогло, тоглолтоо шинжил, алдаа болон тактикаа өдөр бүр давт.</p>
+    <p>Гараагаа цээжил, Stockfish-тэй тогло, тоглолтоо шинжил, алдаа болон тактикаа өдөр бүр давт. Шатрын дэлгэцийн зураг аваад <b>Ctrl+V</b> дарвал байрлалыг AI уншаад тоглуулна.</p>
   </div>
   <div class="overall" id="overall"></div>
 </header>
@@ -946,7 +952,8 @@ function renderPlaySide() {
       <div class="seg three">${[['w', 'Цагаан'], ['r', 'Санамсаргүй'], ['b', 'Хар']].map(([v, t]) => `<button type="button" class="${st.color === v ? 'on' : ''}" data-act="col" data-v="${v}">${t}</button>`).join('')}</div></div>`}
     ${coachField}
     <button class="btn primary" type="button" data-act="start-game">Тоглолт эхлэх</button>
-    <button class="btn" type="button" data-act="edit-open">Байрлал тохируулж тоглох</button></div>`;
+    <button class="btn" type="button" data-act="edit-open">Байрлал тохируулж тоглох</button>
+    <button class="btn" type="button" data-act="scan-open">📷 Зургаас байрлал оруулах</button></div>`;
 }
 
 /* ---------- Position editor: set up any position, then play it against the engine ---------- */
@@ -1054,6 +1061,150 @@ function editDrop(from, to, p) {
   if (!editPlace(to, p)) { if (from) E.pos[from] = p; renderBoard(); return; }
   editorChanged();
 }
+/* ---------- Read a position from a photo or screenshot with Claude vision ---------- */
+// No backend: the page calls the Claude API straight from the browser with the viewer's own key, kept in this browser only
+const SDK_URL = 'https://cdn.jsdelivr.net/npm/@anthropic-ai/sdk@1.4.0/+esm';
+const KEY_STORE = 'yg-chess-anthropic-key';
+// Kept in memory too, so the key still works for this visit where storage is blocked (private windows)
+let memKey = '';
+const getKey = () => { try { return localStorage.getItem(KEY_STORE) || memKey; } catch (e) { return memKey; } };
+const setKey = k => { memKey = k; try { k ? localStorage.setItem(KEY_STORE, k) : localStorage.removeItem(KEY_STORE); } catch (e) {} };
+let sdkLoad = null;
+const loadSdk = () => sdkLoad || (sdkLoad = import(SDK_URL).then(m => m.default || m.Anthropic).catch(e => { sdkLoad = null; throw e; }));
+const SCAN_SCHEMA = {
+  type: 'object',
+  properties: {
+    is_chess_board: { type: 'boolean' },
+    ranks: { type: 'array', items: { type: 'string' } },
+    bottom: { type: 'string', enum: ['white', 'black'] },
+    to_move: { type: 'string', enum: ['w', 'b', 'unknown'] },
+    notes: { type: 'string' },
+  },
+  required: ['is_chess_board', 'ranks', 'bottom', 'to_move', 'notes'],
+  additionalProperties: false,
+};
+const SCAN_PROMPT = `You read chess positions from images: screenshots of chess sites and apps, book diagrams, and photos of real boards.
+Return the position as "ranks": exactly 8 strings, rank 8 first and rank 1 last, each exactly 8 characters for files a to h, always from White's point of view even if the image shows the board from Black's side.
+Use K Q R B N P for white pieces, k q r b n p for black pieces, and "." for an empty square. No digits, spaces or slashes.
+Work out the orientation from coordinate labels when they are visible, otherwise from where the kings and pawns stand. Set "bottom" to the colour whose pieces start at the bottom edge of the image.
+Set "to_move" only when the image shows it (a turn indicator, a highlighted last move, a clock, a caption); otherwise "unknown".
+Look at every square carefully; distinguish bishops from pawns and kings from queens by their shape, and white from black by fill colour, not by the square colour.
+Set "is_chess_board" to false if there is no chess board in the image.
+Write "notes" in Mongolian, one or two short sentences, naming any squares you were unsure about. Leave it empty if you are confident.`;
+function prepImage(file) {
+  return new Promise((res, rej) => {
+    const url = URL.createObjectURL(file), img = new Image();
+    img.onload = () => {
+      // Downscale so large photos stay within the API's image size and cost less
+      const k = Math.min(1, 1568 / Math.max(img.naturalWidth, img.naturalHeight));
+      const c = document.createElement('canvas');
+      c.width = Math.round(img.naturalWidth * k); c.height = Math.round(img.naturalHeight * k);
+      const ctx = c.getContext('2d');
+      ctx.fillStyle = '#fff'; ctx.fillRect(0, 0, c.width, c.height);
+      ctx.drawImage(img, 0, 0, c.width, c.height);
+      URL.revokeObjectURL(url);
+      const dataUrl = c.toDataURL('image/jpeg', .92);
+      res({ url: dataUrl, data: dataUrl.split(',')[1] });
+    };
+    img.onerror = () => { URL.revokeObjectURL(url); rej(new Error('image')); };
+    img.src = url;
+  });
+}
+function scanError(err) {
+  const s = err && err.status;
+  if (err && err.message === 'image') return 'Зургийг нээж чадсангүй. PNG эсвэл JPG зураг оруулна уу.';
+  if (s === 401) return 'API түлхүүр буруу байна. «Түлхүүр солих» дээр дарж шинээр оруулна уу.';
+  if (s === 403) return 'Энэ API түлхүүрээр зураг унших эрх алга.';
+  if (s === 429) return 'Хэт олон хүсэлт илгээлээ. Түр хүлээгээд дахин оролдоно уу.';
+  if (s === 400 && /credit|balance/i.test(err.message || '')) return 'API данс дээр кредит дууссан байна.';
+  if (s >= 500) return 'Claude түр ажиллахгүй байна. Хэсэг хүлээгээд дахин оролдоно уу.';
+  if (err && err.message === 'refusal') return 'Claude энэ зургийг боловсруулахаас татгалзлаа.';
+  if (err && err.message === 'parse') return 'Зургаас байрлалыг бүрэн уншиж чадсангүй. Илүү тод, самбар бүтэн харагдсан зураг оруулна уу.';
+  if (!s) return 'Claude-тай холбогдож чадсангүй. Интернэт холболтоо шалгана уу.';
+  return 'Алдаа гарлаа: ' + esc(String(err.message || s));
+}
+// Accepts the model's ranks, tolerating FEN-style digits if they slip in
+function ranksToPos(ranks) {
+  if (!Array.isArray(ranks) || ranks.length !== 8) return null;
+  const pos = {};
+  for (let i = 0; i < 8; i++) {
+    const row = String(ranks[i]).replace(/\s|\//g, '').replace(/[1-8]/g, d => '.'.repeat(+d));
+    if (row.length !== 8 || /[^KQRBNPkqrbnp.]/.test(row)) return null;
+    [...row].forEach((ch, f) => {
+      if (ch !== '.') pos[FILES[f] + (8 - i)] = { type: ch.toLowerCase(), color: ch === ch.toUpperCase() ? 'w' : 'b' };
+    });
+  }
+  return pos;
+}
+function applyScan(E, out) {
+  if (!out.is_chess_board) { S.msg = { type: 'bad', text: 'Зурган дээр шатрын самбар олдсонгүй.' }; return; }
+  const pos = ranksToPos(out.ranks);
+  if (!pos) throw new Error('parse');
+  E.pos = pos;
+  E.castle = { K: true, Q: true, k: true, q: true };
+  if (out.to_move === 'w' || out.to_move === 'b') E.turn = out.to_move;
+  E.me = out.bottom === 'black' ? 'b' : 'w';
+  if (S.mode === 'edit' && S.ED === E) S.orient = E.me;
+  P.setup.editFen = editorFen(E); save();
+  const problem = editorProblem(E);
+  S.msg = { type: problem ? 'bad' : 'ok', text: `<b>Зургаас байрлал уншлаа.</b> Самбартай тулгаж шалгаад, алдаатай нүд байвал засаарай.${out.to_move === 'unknown' ? ' Хэн нүүх ээлжтэйг сонгоно уу.' : ''}${out.notes ? ' ' + esc(out.notes) : ''}${problem ? ' ' + problem : ''}` };
+}
+async function scanImage(file) {
+  if (!file || !/^image\//.test(file.type)) return;
+  if (S.mode !== 'edit') openEditor();
+  const E = S.ED, key = getKey();
+  if (!key) {
+    S.pendingScan = file;
+    S.msg = { type: 'bad', text: 'Зураг хүлээн авлаа. Claude API түлхүүрээ оруулж «Хадгалах» дармагц шууд уншина.' };
+    renderPanel(); document.querySelector('#scanKey')?.focus(); return;
+  }
+  if (E.scan && E.scan.busy) return;
+  E.scan = { busy: true, preview: '' };
+  S.msg = { type: 'info', text: 'AI зургийг уншиж байна… (10–40 секунд)' };
+  renderPanel();
+  try {
+    const img = await prepImage(file);
+    E.scan.preview = img.url;
+    if (S.mode === 'edit' && S.ED === E) renderPanel();
+    const Anthropic = await loadSdk();
+    const client = new Anthropic({ apiKey: key, dangerouslyAllowBrowser: true });
+    const res = await client.beta.messages.create({
+      model: 'claude-opus-5-5',
+      max_tokens: 16000,
+      betas: ['server-side-fallback-2026-07-01'],
+      fallbacks: 'default',
+      output_config: { effort: 'high', format: { type: 'json_schema', schema: SCAN_SCHEMA } },
+      system: SCAN_PROMPT,
+      messages: [{ role: 'user', content: [
+        { type: 'image', source: { type: 'base64', media_type: 'image/jpeg', data: img.data } },
+        { type: 'text', text: 'Read the chess position in this image.' },
+      ] }],
+    });
+    if (S.ED !== E) return;
+    if (res.stop_reason === 'refusal') throw new Error('refusal');
+    let out;
+    try { out = JSON.parse(res.content.filter(b => b.type === 'text').map(b => b.text).join('')); }
+    catch (e) { throw new Error('parse'); }
+    applyScan(E, out);
+  } catch (err) {
+    if (S.ED !== E) return;
+    S.msg = { type: 'bad', text: scanError(err) };
+  }
+  E.scan.busy = false;
+  if (S.mode === 'edit' && S.ED === E) { renderBoard(); renderPanel(); }
+}
+function scanBlock(E) {
+  const key = getKey(), busy = E.scan && E.scan.busy;
+  const body = key
+    ? `<div class="actions"><label class="btn filebtn${busy ? ' off' : ''}">📷 Зураг оруулах<input type="file" accept="image/*" id="scanFile" hidden ${busy ? 'disabled' : ''}></label>
+        <button class="linkbtn" type="button" data-act="scan-key-clear">Түлхүүр солих</button></div>
+       <p class="hintline"><b>Дэлгэцийн зураг аваад (Win+Shift+S) шууд Ctrl+V</b> — аль ч хэсэгт байсан ажиллана. Номын диаграм, самбарын фото ч болно; файлаар эсвэл самбар руу чирж оруулж бас болно. Зураг Anthropic-ийн Claude руу илгээгдэнэ.</p>`
+    : `<p class="hintline">Claude-ийн API түлхүүр хэрэгтэй (platform.claude.com). Түлхүүр зөвхөн энэ хөтөчид хадгалагдах бөгөөд зөвхөн api.anthropic.com руу илгээгдэнэ.</p>
+       <div class="keyrow"><input type="password" id="scanKey" placeholder="sk-ant-…" autocomplete="off" spellcheck="false" aria-label="Claude API түлхүүр">
+         <button class="btn" type="button" data-act="scan-key-save">Хадгалах</button></div>`;
+  return `<div class="field"><span class="eyebrow">Зургаас таних · AI</span>${body}
+    ${E.scan && E.scan.preview ? `<img class="scanprev" src="${E.scan.preview}" alt="Оруулсан зураг">` : ''}</div>`;
+}
 function editorPlay() {
   const E = S.ED, err = editorProblem(E);
   if (err) { S.msg = { type: 'bad', text: err }; renderPanel(); return; }
@@ -1068,6 +1219,7 @@ function renderEditPanel() {
   const seg = (act, cur, opts) => `<div class="seg">${opts.map(([v, t]) => `<button type="button" class="${cur === v ? 'on' : ''}" data-act="${act}" data-v="${v}">${t}</button>`).join('')}</div>`;
   const msg = S.msg ? `<div class="msg ${S.msg.type}" aria-live="polite">${S.msg.text}</div>` : '';
   el.innerHTML = `<div><div class="eyebrow">AI-тай тоглох · байрлал тохируулах</div><h2 class="ptitle">Хүссэн дүрсээ байрлуул</h2></div>
+    ${scanBlock(E)}
     <div class="palette" role="toolbar" aria-label="Дүрс">${row('w')}${row('b')}
       <button type="button" class="tool erase${on('x') ? ' on' : ''}" data-act="tool" data-tool="x">✕ Арилгах</button></div>
     <p class="hintline">Дүрс сонгоод нүд дээр дар (дахин дарвал арилна). Самбар дээрх дүрсийг чирж зөөнө, самбараас гаргаж хаявал устна. Баруун товч — арилгах.</p>
@@ -1086,6 +1238,246 @@ function renderEditPanel() {
     <div class="actions">
       <button class="btn primary" type="button" data-act="ed-play">Энэ байрлалаас тоглох</button>
       <button class="btn" type="button" data-act="ed-exit">Болих</button></div>`;
+}
+
+/* ---------- Opening prep: one opening against every reply, building your own repertoire tree ---------- */
+// The opponent stays inside the opening's shared first moves, then picks varied replies from the book and Stockfish.
+// Every move you get right in a position becomes your repertoire move there and is scheduled for review.
+const PREP_DEPTHS = [8, 12, 16];
+const PREP_VARIETY = { main: { name: 'Гол хувилбар', cp: 25, pv: 3 }, wide: { name: 'Олон янз', cp: 60, pv: 5 }, wild: { name: 'Ер бусын', cp: 140, pv: 6 } };
+const PREP_OK = 6;  // win-chance loss a move may cost and still count as correct
+const posKey = fen => fen.split(' ').slice(0, 4).join(' ');
+const applyUci = (g, u) => g.move({ from: u.slice(0, 2), to: u.slice(2, 4), promotion: u[4] });
+function prepSet() { return P.prepSet || (P.prepSet = { opening: OPENINGS[0].id, depth: 12, variety: 'wide' }); }
+function prepData(oid) {
+  P.prep = P.prep || {};
+  return P.prep[oid] || (P.prep[oid] = { tree: {}, seen: {}, sessions: 0, good: 0, total: 0 });
+}
+function prepPrefix(o) {
+  const ls = o.lineObjs, out = [];
+  for (let i = 0; ls.every(l => l.moves.length > i && strip(l.moves[i]) === strip(ls[0].moves[i])); i++) out.push(ls[0].moves[i]);
+  return out;
+}
+// Repertoire moves for the current position: the opening's lines that match the game so far
+function prepBook(X) {
+  const sans = X.game.history().map(strip), set = new Set();
+  for (const l of X.o.lineObjs) if (l.moves.length > sans.length && sans.every((s, i) => s === strip(l.moves[i]))) set.add(l.moves[sans.length]);
+  return [...set];
+}
+const prepDue = D => Object.values(D.tree).filter(e => e.due <= Date.now()).length;
+function prepMsg(X, m) { X.msg = m; if (S.mode === 'prep' && S.PR === X) S.msg = m; }
+function prepPaint(X) {
+  if (S.mode !== 'prep' || S.PR !== X) return;
+  Object.assign(S, { game: X.game, lastMove: X.last, msg: X.msg });
+  renderAll();
+}
+function startPrep() {
+  clearTimeout(S.oppTimer);
+  const st = prepSet(), o = OPENINGS.find(x => x.id === st.opening) || OPENINGS[0];
+  const X = S.PR = { o, color: o.side, game: new Chess(), prefix: prepPrefix(o), target: st.depth * 2, variety: st.variety,
+    last: null, msg: null, pre: null, busy: false, done: false, tries: 0, good: 0, moves: 0, mistakes: 0, fresh: 0, cards: [], outBook: false };
+  Object.assign(S, { tab: 'prep', mode: 'prep', orient: o.side, selected: null, hintSq: null, arrow: null, arrow2: null });
+  renderLibrary();
+  if (X.color === 'b') prepOpp(X); else prepUserTurn(X, null);
+}
+async function prepOpp(X) {
+  X.busy = true;
+  prepMsg(X, { type: 'info', text: 'Өрсөлдөгч бодож байна…' });
+  prepPaint(X);
+  const g = X.game, ply = g.history().length, t0 = Date.now();
+  let mv = null;
+  if (ply < X.prefix.length) mv = findMove(g, X.prefix[ply]);
+  else {
+    const V = PREP_VARIETY[X.variety] || PREP_VARIETY.wide, cands = new Map();
+    for (const san of prepBook(X)) { const m = findMove(g, san); if (m) cands.set(uciOf(m), { m, w: 2 }); }
+    const res = await safeSearch(g.fen(), { depth: 10, multipv: V.pv });
+    if (S.PR !== X) return;
+    if (!res) { X.busy = false; return; }
+    const top = scoreOf(res.lines[0]);
+    for (const l of res.lines) {
+      if (top - scoreOf(l) > V.cp || cands.has(l.uci)) continue;
+      const m = moveFromUci(g, l.uci);
+      if (m) cands.set(l.uci, { m, w: 1 });
+    }
+    // Favour replies you have not faced here yet, and ones that lead to positions due for review
+    const D = prepData(X.o.id), key = posKey(g.fen()), seen = D.seen[key] || [];
+    for (const [u, c] of cands) {
+      if (!seen.includes(u)) c.w *= 3;
+      const t = new Chess(g.fen()); applyUci(t, u);
+      const e = D.tree[posKey(t.fen())];
+      if (e && e.due <= Date.now()) c.w *= 3;
+    }
+    const list = [...cands.values()];
+    let r = Math.random() * list.reduce((a, c) => a + c.w, 0);
+    mv = list.find(c => (r -= c.w) <= 0)?.m || list[0].m;
+    D.seen[key] = [...new Set([...seen, uciOf(mv)])];
+    save();
+  }
+  await wait(Math.max(0, 450 - (Date.now() - t0)));
+  if (S.PR !== X) return;
+  g.move({ from: mv.from, to: mv.to, promotion: mv.promotion });
+  X.last = { from: mv.from, to: mv.to };
+  X.busy = false;
+  prepUserTurn(X, mv.san);
+}
+function prepUserTurn(X, oppSan) {
+  const g = X.game, ply = g.history().length;
+  if (g.game_over() || ply >= X.target) return prepFinish(X);
+  X.tries = 0;
+  if (S.PR === X) { S.arrow = null; S.hintSq = null; }
+  const inPrefix = ply < X.prefix.length;
+  X.pre = inPrefix ? null : safeSearch(g.fen(), { depth: 12, movetime: 900 });
+  const e = prepData(X.o.id).tree[posKey(g.fen())], book = !inPrefix && prepBook(X).length;
+  let note = '';
+  if (inPrefix) note = `«${esc(X.o.name)}» гарааны үндсэн нүүдэл.`;
+  else if (e && e.due <= Date.now()) note = 'Давтах байрлал — өмнө нь тоглосон нүүдлээ сана.';
+  else if (e) note = 'Танил байрлал.';
+  else if (book) note = 'Онолын байрлал.';
+  else {
+    note = 'Шинэ байрлал — өөрөө бод. Stockfish шалгана.';
+    if (!X.outBook) { X.outBook = true; note = 'Онол дууслаа. ' + note; }
+  }
+  prepMsg(X, { type: 'info', text: (oppSan ? `Өрсөлдөгч <b>${esc(oppSan)}</b> нүүлээ. ` : '') + note });
+  prepPaint(X);
+}
+function prepAddCard(X, fen, bestUci, san, loss, win, why) {
+  const old = P.cards[fen];
+  P.cards[fen] = Object.assign({ fen, box: 0, due: Date.now(), reps: 0, fails: 0 }, old,
+    { best: bestUci, played: san, cls: classify(loss) || 'mist', win, why, ctx: `Бэлтгэл · ${X.o.name} · ${Math.floor(X.game.history().length / 2) + 1}-р нүүдэл` });
+  if (!X.cards.includes(fen)) X.cards.push(fen);
+}
+async function prepMove(mv) {
+  const X = S.PR, g = X.game, fen = g.fen(), ply = g.history().length, key = posKey(fen);
+  if (ply < X.prefix.length) {
+    const exp = findMove(g, X.prefix[ply]);
+    if (strip(mv.san) !== strip(exp.san)) {
+      flash([mv.from, mv.to]);
+      S.arrow = { from: exp.from, to: exp.to, kind: 'answer' };
+      prepMsg(X, { type: 'bad', text: `Энэ бэлтгэл «${esc(X.o.name)}» гараагаар явна — <b>${esc(exp.san)}</b> нүүнэ.` });
+      renderAll(); return;
+    }
+    g.move(exp.san); X.last = { from: exp.from, to: exp.to }; S.arrow = null;
+    return prepOpp(X);
+  }
+  const book = prepBook(X).map(strip);
+  let ok = book.includes(strip(mv.san)), loss = 0, why = '', best = null, before = null;
+  if (!ok) {
+    X.busy = true;
+    prepMsg(X, { type: 'info', text: 'Stockfish шалгаж байна…' }); renderPanel();
+    const t = new Chess(fen); t.move({ from: mv.from, to: mv.to, promotion: mv.promotion });
+    const [b, a] = await Promise.all([X.pre, t.game_over() ? null : safeSearch(t.fen(), { depth: 12, movetime: 900 })]);
+    if (S.PR !== X) return;
+    X.busy = false;
+    if (!b) return;
+    before = b; best = b.best;
+    if (t.in_checkmate() || uciOf(mv) === b.best) ok = true;
+    else if (a) {
+      loss = Math.max(0, winOf(b.lines[0]) - (100 - winOf(a.lines[0])));
+      ok = loss < PREP_OK;
+      why = explain({ fen, played: mv, bestUci: b.best, replyUci: a.lines[0].uci, oppMate: a.lines[0].mate > 0 ? a.lines[0].mate : 0, bestMate: b.lines[0].mate > 0 ? b.lines[0].mate : 0 });
+    }
+  }
+  const D = prepData(X.o.id), e = D.tree[key], u = uciOf(mv);
+  if (ok) {
+    const first = X.tries === 0;
+    X.moves++; D.total++;
+    if (first) { X.good++; D.good++; }
+    let extra = '';
+    if (!e) { D.tree[key] = { mv: u, san: mv.san, box: first ? 1 : 0, due: Date.now() + INTERVALS[first ? 1 : 0] }; X.fresh++; }
+    else {
+      if (e.mv !== u) extra = ` Өмнө нь энд <b>${esc(e.san)}</b> тоглож байсан — репертуарыг шинэчиллээ.`;
+      Object.assign(e, { mv: u, san: mv.san });
+      e.box = first ? Math.min(INTERVALS.length - 1, e.box + 1) : 0;
+      e.due = Date.now() + INTERVALS[e.box];
+    }
+    save();
+    const better = !book.includes(strip(mv.san)) && loss > 2 && best ? moveFromUci(new Chess(fen), best) : null;
+    g.move({ from: mv.from, to: mv.to, promotion: mv.promotion });
+    X.last = { from: mv.from, to: mv.to }; S.arrow = null; S.hintSq = null;
+    prepMsg(X, { type: 'ok', text: `Зөв — <b>${esc(mv.san)}</b>${book.includes(strip(mv.san)) ? ' (онол)' : ''}.${better ? ` Тоглож болно, гэхдээ илүү сайн нь <b>${esc(better.san)}</b>.` : ''}${extra}` });
+    return prepOpp(X);
+  }
+  if (X.tries === 0) {
+    X.mistakes++;
+    if (before) prepAddCard(X, fen, best, mv.san, loss, winOf(before.lines[0]), why);
+    if (e) { e.box = 0; e.due = Date.now(); }
+    save();
+  }
+  X.tries++;
+  flash([mv.from, mv.to]);
+  let text = `<b>${esc(mv.san)}</b>: ${CLS_TXT[classify(loss)] || 'Сул нүүдэл'}. ${why}`;
+  if (X.tries >= 2 && best) { const m = moveFromUci(g, best); S.arrow = { from: m.from, to: m.to, kind: 'answer' }; text += ' Сумаар зөв нүүдлийг харууллаа.'; }
+  else text += ' Дахин бод.';
+  prepMsg(X, { type: 'bad', text });
+  renderAll();
+}
+async function prepHint() {
+  const X = S.PR;
+  if (!X || S.mode !== 'prep' || !interactive()) return;
+  const g = X.game, ply = g.history().length;
+  let m = null, why = '';
+  if (ply < X.prefix.length) { m = findMove(g, X.prefix[ply]); why = 'Гарааны үндсэн нүүдэл.'; }
+  else {
+    const e = prepData(X.o.id).tree[posKey(g.fen())], book = prepBook(X);
+    if (e) { m = moveFromUci(g, e.mv); why = 'Өмнө нь энэ байрлалд тоглосон таны нүүдэл.'; }
+    else if (book.length) { m = findMove(g, book[0]); why = 'Онолын нүүдэл.'; }
+    else { const r = await X.pre; if (!r || S.PR !== X) return; m = moveFromUci(g, r.best); why = 'Stockfish-ийн санал.'; }
+  }
+  if (!m) return;
+  X.tries = Math.max(X.tries, 1);
+  S.arrow = { from: m.from, to: m.to, kind: 'answer' };
+  prepMsg(X, { type: 'info', text: `${why} <b>${esc(m.san)}</b> — яагаад гэдгийг бодоод нүү.` });
+  renderAll();
+}
+function prepFinish(X) {
+  X.done = true; X.busy = false; X.pre = null;
+  const D = prepData(X.o.id);
+  D.sessions++; save();
+  logWork('prep');
+  const acc = X.moves ? Math.round(X.good / X.moves * 100) : 100;
+  prepMsg(X, { type: 'done', text: `<b>Бэлтгэл дууслаа.</b> ${X.moves} нүүдлээс ${X.good}-ийг анхны оролдлогоор зөв (${acc}%). ${X.fresh} шинэ байрлал репертуарт нэмэгдлээ.${X.mistakes ? ` Алдсан ${X.mistakes} байрлал «Миний алдаа»-д орлоо.` : ''}` });
+  if (S.mode === 'prep' && S.PR === X) { S.arrow = null; renderLibrary(); }
+  prepPaint(X);
+}
+function renderPrepPanel() {
+  const X = S.PR, el = $('#panel');
+  const msg = S.msg ? `<div class="msg ${S.msg.type}" aria-live="polite">${S.msg.text}</div>` : '';
+  if (!X) {
+    const o = OPENINGS.find(x => x.id === prepSet().opening) || OPENINGS[0];
+    el.innerHTML = `<div><div class="eyebrow">Гарааны бэлтгэл</div><h2 class="ptitle">Нэг гараагаа ямар ч хувилбарын эсрэг тоглож сур</h2></div>
+      <p class="note">AI таны сонгосон гарааны үндсэн нүүдлүүдийг тоглоод, дараа нь онолын болон Stockfish-ийн олон янзын хариугаар таныг сорино. Таны зөв нүүдэл бүр өөрийн тань репертуар болж хадгалагдаж, зайтай давтагдана. Алдвал яагаад гэдгийг тайлбарлаж, дахин бодуулна.</p>
+      <div class="actions"><button class="btn primary" type="button" data-act="prep-start">«${esc(o.name)}» бэлтгэл эхлэх</button></div>`;
+    return;
+  }
+  const sans = X.game.history(), D = prepData(X.o.id);
+  el.innerHTML = `<div><div class="eyebrow">Бэлтгэл · ${esc(PREP_VARIETY[X.variety].name)} · та ${X.color === 'w' ? 'цагаан' : 'хар'}</div>
+      <h2 class="ptitle">${esc(X.o.name)}</h2></div>
+    <div class="kv"><span>Нүүдэл <b>${Math.min(Math.ceil(sans.length / 2), X.target / 2)}/${X.target / 2}</b></span><span>Зөв <b>${X.good}/${X.moves}</b></span><span>Алдаа <b>${X.mistakes}</b></span><span>Шинэ <b>${X.fresh}</b></span></div>
+    <div class="moves">${plyListHTML(sans, { cur: sans.length - 1, pending: !X.done })}</div>
+    ${msg}
+    <div class="actions">${X.done
+      ? `<button class="btn primary" type="button" data-act="prep-start">Дахин бэлтгэх</button>
+         ${X.cards.length ? `<button class="btn" type="button" data-act="prep-cards">Алдаагаа давтах (${X.cards.length})</button>` : ''}
+         <button class="btn" type="button" data-act="prep-play">Үргэлжлүүлж AI-тай тоглох</button>`
+      : `<button class="btn" type="button" data-act="prep-hint" ${interactive() ? '' : 'disabled'}>Санамж (H)</button>
+         <button class="btn" type="button" data-act="prep-start">Эхнээс</button>`}</div>
+    <p class="hintline">Репертуарт ${Object.keys(D.tree).length} байрлал · давтах ${prepDue(D)}</p>`;
+}
+function renderPrepSide() {
+  const st = prepSet();
+  const row = o => {
+    const D = prepData(o.id), n = Object.keys(D.tree).length, due = prepDue(D);
+    return `<button type="button" class="gl${st.opening === o.id ? ' cur' : ''}" data-act="prep-op" data-v="${o.id}">
+      <span>${esc(o.name)}</span><small>${o.side === 'w' ? 'цагаан' : 'хар'}</small>
+      <small>${n} байрлал${due ? ` · ${due} давтах` : ''}</small><small>${D.total ? Math.round(D.good / D.total * 100) + '%' : ''}</small></button>`;
+  };
+  const seg = (act, cur, opts) => `<div class="seg three">${opts.map(([v, t]) => `<button type="button" class="${cur === v ? 'on' : ''}" data-act="${act}" data-v="${v}">${t}</button>`).join('')}</div>`;
+  $('#library').innerHTML = `<div class="pad">
+    <div class="field"><span class="eyebrow">Гараа сонгох</span><div class="gamelist">${OPENINGS.map(row).join('')}</div></div>
+    <div class="field"><span class="eyebrow">Урт</span>${seg('prep-depth', st.depth, PREP_DEPTHS.map(d => [d, d + ' нүүдэл']))}</div>
+    <div class="field"><span class="eyebrow">Өрсөлдөгчийн хариу</span>${seg('prep-var', st.variety, Object.entries(PREP_VARIETY).map(([k, v]) => [k, v.name]))}
+      <p class="hintline">«Гол хувилбар» — хамгийн сайн хариунууд. «Олон янз» — бүх түгээмэл хувилбар. «Ер бусын» — ховор, сул хариу ч орно, түүнийг шийтгэж сур.</p></div>
+    <button class="btn primary" type="button" data-act="prep-start">Бэлтгэл эхлэх</button></div>`;
 }
 
 /* ---------- Game review ---------- */
@@ -1516,12 +1908,13 @@ function renderTacticsSide() {
 }
 
 /* ---------- Tabs, daily plan, actions ---------- */
-const TABS = [['open', 'Гараа'], ['play', 'AI-тай тоглох'], ['tactics', 'Тактик'], ['review', 'Шинжилгээ']];
+const TABS = [['open', 'Гараа'], ['prep', 'Гарааны бэлтгэл'], ['play', 'AI-тай тоглох'], ['tactics', 'Тактик'], ['review', 'Шинжилгээ']];
 function renderTabs() {
   $('#tabs').innerHTML = TABS.map(([k, t]) => `<button type="button" class="${S.tab === k ? 'on' : ''}" data-act="tab" data-v="${k}" ${S.tab === k ? 'aria-current="page"' : ''}>${t}</button>`).join('');
 }
 function renderSide() {
   if (S.tab === 'play') renderPlaySide();
+  else if (S.tab === 'prep') renderPrepSide();
   else if (S.tab === 'review') renderReviewSide();
   else if (S.tab === 'tactics') renderTacticsSide();
 }
@@ -1529,6 +1922,13 @@ function setTab(t) {
   clearTimeout(S.oppTimer);
   Object.assign(S, { tab: t, busy: false, selected: null, hintSq: null, arrow: null, arrow2: null, msg: null });
   if (t === 'open') return startLearn(S.line);
+  if (t === 'prep') {
+    S.mode = 'prep';
+    const X = S.PR;
+    if (X) Object.assign(S, { game: X.game, orient: X.color, lastMove: X.last, msg: X.msg });
+    else { S.game = new Chess(); S.lastMove = null; S.orient = (OPENINGS.find(o => o.id === prepSet().opening) || OPENINGS[0]).side; }
+    renderLibrary(); renderAll(); return;
+  }
   if (t === 'play') {
     if (S.ED && S.ED.active) return showEditor();
     S.mode = 'play';
@@ -1559,6 +1959,7 @@ function renderPlan() {
   $('#plan').innerHTML = `<span class="eyebrow">Өнөөдрийн бэлтгэл</span>
     ${task('plan-lines', 'Гараа давтах', !lines && d.n > 0, lines ? `${lines} үлдсэн` : `${d.n} хийсэн`)}
     ${task('plan-cards', 'Алдаагаа засах', !cards && (d.cards || 0) > 0, cards ? `${cards} үлдсэн` : `${d.cards || 0} хийсэн`)}
+    ${task('plan-prep', 'Гарааны бэлтгэл', (d.prep || 0) >= 1, `${d.prep || 0} / 1`)}
     ${task('plan-pz', 'Тактик бодох', (d.pz || 0) >= 10, `${d.pz || 0} / 10`)}
     ${task('plan-game', 'Тоглоод шинжлэх', (d.reviews || 0) >= 1, `${d.reviews || 0} / 1`)}`;
 }
@@ -1571,7 +1972,23 @@ function coachAction(a, b) {
     lvl: () => { P.setup.level = +v; save(); renderSide(); },
     col: () => { P.setup.color = v; save(); renderSide(); },
     'play-hint': playHint, takeback,
+    'prep-start': startPrep, 'prep-hint': prepHint,
+    'prep-op': () => { prepSet().opening = v; save(); if (!S.PR || S.PR.done) { S.PR = null; setTab('prep'); } else renderSide(); },
+    'prep-depth': () => { prepSet().depth = +v; save(); renderSide(); },
+    'prep-var': () => { prepSet().variety = v; save(); renderSide(); },
+    'prep-cards': () => startCards(S.PR.cards.map(f => P.cards[f]).filter(Boolean), 'Бэлтгэлийн алдаа'),
+    'prep-play': () => beginGame({ color: S.PR.color, level: P.setup.level, moves: S.PR.game.history(), label: S.PR.o.name }),
+    'plan-prep': () => setTab('prep'),
     'edit-open': () => openEditor(),
+    'scan-open': () => { openEditor(); const f = document.querySelector('#scanFile'); if (f) f.click(); else document.querySelector('#scanKey')?.focus(); },
+    'scan-key-save': () => {
+      const k = (document.querySelector('#scanKey')?.value || '').trim();
+      if (!/^sk-ant-/.test(k)) { S.msg = { type: 'bad', text: 'API түлхүүр «sk-ant-» гэж эхэлнэ.' }; renderPanel(); return; }
+      setKey(k);
+      if (S.pendingScan) { const f = S.pendingScan; S.pendingScan = null; scanImage(f); return; }
+      S.msg = { type: 'ok', text: 'Түлхүүр хадгалагдлаа. Одоо дэлгэцийн зургаа аваад Ctrl+V дарна уу.' }; renderPanel();
+    },
+    'scan-key-clear': () => { setKey(''); S.msg = null; renderPanel(); },
     'edit-game': () => S.G && openEditor(S.G.game.fen(), S.G.color),
     'replay-start': () => { const G = S.G; if (G && G.start) beginGame({ color: G.color, level: P.setup.level, fen: G.start, label: G.label }); },
     tool: () => { const t = b.dataset.tool; S.ED.tool = t === 'x' ? 'x' : { color: t[0], type: t[1] }; renderPanel(); },
@@ -1619,6 +2036,7 @@ function coachAction(a, b) {
 document.addEventListener('change', e => {
   if (e.target.id === 'openSel') { P.setup.opening = e.target.value; save(); renderSide(); }
   else if (e.target.id === 'coachChk') { P.setup.coach = e.target.checked; save(); }
+  else if (e.target.id === 'scanFile') { const f = e.target.files[0]; e.target.value = ''; scanImage(f); }
   else if (e.target.dataset.castle && S.ED) { S.ED.castle[e.target.dataset.castle] = e.target.checked; editorChanged(); }
   else if (e.target.id === 'edFen' && S.ED) {
     const src = parseFen(e.target.value);
@@ -1631,6 +2049,7 @@ document.addEventListener('input', e => { if (e.target.id === 'pgnIn') S.pgnText
 /* ---------- Board interaction ---------- */
 function interactive() {
   if (S.mode === 'edit') return false;
+  if (S.mode === 'prep') return !!S.PR && !S.PR.done && !S.PR.busy && S.game === S.PR.game && S.PR.game.turn() === S.PR.color;
   if (S.mode === 'learn') return S.ply < S.line.moves.length;
   if (S.mode === 'play') { const G = S.G; return !!G && !G.over && !G.thinking && !G.hold && G.game.turn() === G.color; }
   if (S.mode === 'review') return false;
@@ -1659,6 +2078,7 @@ function tryMove(from, to) {
   if (!mv) { renderBoard(); return; }
   if (S.mode === 'learn') learnMove(mv);
   else if (S.mode === 'play') playMove(mv);
+  else if (S.mode === 'prep') prepMove(mv);
   else if (S.mode === 'retry') retryMove(mv);
   else if (S.mode === 'puzzle') puzzleMove(mv);
   else drillMove(mv);
@@ -1783,6 +2203,7 @@ function drillMovesHTML() {
 }
 function renderPanel() {
   if (S.mode === 'edit') return renderEditPanel();
+  if (S.mode === 'prep') return renderPrepPanel();
   if (S.mode === 'play') return renderPlayPanel();
   if (S.mode === 'review') return renderReviewPanel();
   if (S.mode === 'retry') return renderRetryPanel();
@@ -1906,7 +2327,26 @@ document.addEventListener('click', e => {
   else if (a === 'reveal') revealAnswer(true);
   else if (a === 'reset') { S.confirmReset = true; renderLibrary(); }
   else if (a === 'reset-no') { S.confirmReset = false; renderLibrary(); }
-  else if (a === 'reset-yes') { P = blankProgress(); S.G = S.R = S.C = S.PZ = null; save(); S.confirmReset = false; renderLibrary(); renderAll(); }
+  else if (a === 'reset-yes') { P = blankProgress(); S.G = S.R = S.C = S.PZ = S.PR = null; save(); S.confirmReset = false; renderLibrary(); renderAll(); }
+});
+// Paste or drop a picture of a board while editing (or from the play tab) to read it with Claude
+const imageFrom = list => [...(list || [])].find(f => f && /^image\//.test(f.type));
+// Works from every tab: take a screenshot, press Ctrl+V, and the editor opens with the position read
+document.addEventListener('paste', e => {
+  const f = imageFrom([...(e.clipboardData?.items || [])].filter(i => i.kind === 'file').map(i => i.getAsFile()));
+  if (f) { e.preventDefault(); scanImage(f); }
+});
+const wrapEl = $('#boardWrap');
+['dragenter', 'dragover'].forEach(t => wrapEl.addEventListener(t, e => {
+  if (S.tab !== 'play' || ![...(e.dataTransfer?.types || [])].includes('Files')) return;
+  e.preventDefault(); wrapEl.classList.add('dropping');
+}));
+wrapEl.addEventListener('dragleave', () => wrapEl.classList.remove('dropping'));
+wrapEl.addEventListener('drop', e => {
+  wrapEl.classList.remove('dropping');
+  if (S.tab !== 'play') return;
+  e.preventDefault();
+  scanImage(imageFrom(e.dataTransfer?.files));
 });
 $('#flipBtn').addEventListener('click', () => { S.orient = S.orient === 'w' ? 'b' : 'w'; renderBoard(); });
 document.addEventListener('keydown', e => {
@@ -1915,8 +2355,8 @@ document.addEventListener('keydown', e => {
     const R = S.R; if (!R) return;
     if (e.key === 'ArrowRight') { reviewGo(R.i + 1); e.preventDefault(); }
     else if (e.key === 'ArrowLeft') { reviewGo(R.i - 1); e.preventDefault(); }
-  } else if (S.mode === 'play' || S.mode === 'puzzle' || S.mode === 'retry') {
-    if (e.key === 'h' || e.key === 'H' || e.key === 'һ') { if (S.mode === 'play') playHint(); else if (S.mode === 'puzzle') puzzleHint(); else retryHint(); }
+  } else if (S.mode === 'play' || S.mode === 'puzzle' || S.mode === 'retry' || S.mode === 'prep') {
+    if (e.key === 'h' || e.key === 'H' || e.key === 'һ') { if (S.mode === 'prep') prepHint(); else if (S.mode === 'play') playHint(); else if (S.mode === 'puzzle') puzzleHint(); else retryHint(); }
   } else if (S.mode === 'learn') {
     if (e.key === 'ArrowRight') { setLearnPos(S.ply + 1); e.preventDefault(); }
     else if (e.key === 'ArrowLeft') { setLearnPos(S.ply - 1); e.preventDefault(); }
